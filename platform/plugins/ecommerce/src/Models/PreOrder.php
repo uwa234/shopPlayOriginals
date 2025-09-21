@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PreOrder extends BaseModel
 {
@@ -21,6 +22,10 @@ class PreOrder extends BaseModel
         'expected_delivery_date',
         'status',
         'description',
+        'deposit_amount',
+        'deposit_percentage',
+        'requires_deposit',
+        'allow_full_payment',
     ];
 
     protected $casts = [
@@ -29,6 +34,10 @@ class PreOrder extends BaseModel
         'pre_order_end_date' => 'datetime',
         'expected_delivery_date' => 'datetime',
         'name' => SafeContent::class,
+        'deposit_amount' => 'decimal:2',
+        'deposit_percentage' => 'decimal:2',
+        'requires_deposit' => 'boolean',
+        'allow_full_payment' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -40,7 +49,12 @@ class PreOrder extends BaseModel
     {
         return $this
             ->belongsToMany(Product::class, 'ec_pre_order_products', 'pre_order_id', 'product_id')
-            ->withPivot(['price', 'max_quantity', 'pre_ordered', 'is_active']);
+            ->withPivot(['price', 'max_quantity', 'pre_ordered', 'is_active', 'deposit_amount', 'deposit_percentage']);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(PreOrderPayment::class);
     }
 
     public function scopeActive(Builder $query): Builder
@@ -100,5 +114,40 @@ class PreOrder extends BaseModel
 
             return ($this->pivot->pre_ordered / $this->pivot->max_quantity) * 100;
         })->shouldCache();
+    }
+
+    public function calculateDepositAmount(Product $product, int $quantity = 1): float
+    {
+        $productPrice = $this->products()->where('product_id', $product->id)->first()?->pivot?->price ?? $product->price;
+        $totalAmount = $productPrice * $quantity;
+
+        // Check product-specific deposit first
+        $productPivot = $this->products()->where('product_id', $product->id)->first()?->pivot;
+        if ($productPivot?->deposit_amount) {
+            return $productPivot->deposit_amount * $quantity;
+        }
+        if ($productPivot?->deposit_percentage) {
+            return ($totalAmount * $productPivot->deposit_percentage) / 100;
+        }
+
+        // Fall back to pre-order level deposit
+        if ($this->deposit_amount) {
+            return $this->deposit_amount * $quantity;
+        }
+        if ($this->deposit_percentage) {
+            return ($totalAmount * $this->deposit_percentage) / 100;
+        }
+
+        return $totalAmount; // Full payment if no deposit configured
+    }
+
+    public function requiresDeposit(): bool
+    {
+        return $this->requires_deposit;
+    }
+
+    public function allowsFullPayment(): bool
+    {
+        return $this->allow_full_payment;
     }
 }

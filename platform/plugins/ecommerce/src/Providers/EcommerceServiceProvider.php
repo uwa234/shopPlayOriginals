@@ -388,6 +388,7 @@ class EcommerceServiceProvider extends ServiceProvider
                 'invoice',
                 'setting',
                 'product-specification',
+                'pre-order',
                 'api',
                 'ajax',
             ])
@@ -729,6 +730,15 @@ class EcommerceServiceProvider extends ServiceProvider
                     'icon' => 'ti ti-basket-cancel',
                     'url' => fn () => route('orders.incomplete-list'),
                     'permissions' => ['orders.index'],
+                ])
+                ->registerItem([
+                    'id' => 'cms-plugins-ecommerce-pre-orders',
+                    'priority' => 25,
+                    'parent_id' => 'cms-plugins-ecommerce',
+                    'name' => 'plugins/ecommerce::pre-orders.name',
+                    'icon' => 'ti ti-clock-hour-4',
+                    'url' => fn () => route('pre-orders.index'),
+                    'permissions' => ['pre-orders.index'],
                 ])
                 ->registerItem([
                     'id' => 'cms-plugins-ecommerce-order-return',

@@ -98,6 +98,85 @@
         </div>
     @endif
 
+    @php
+        $preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class);
+        $activePreOrder = $preOrderService->getActivePreOrderForProduct($product);
+    @endphp
+
+    @if ($activePreOrder)
+        <div class="tp-product-details-pre-order mt-25 mb-25">
+            <div class="tp-product-pre-order-info">
+                <h4 class="tp-product-pre-order-title">
+                    <x-core::icon name="ti ti-clock" />
+                    {{ __('Pre-Order Available') }}
+                </h4>
+                
+                <div class="tp-product-pre-order-details">
+                    <div class="tp-pre-order-campaign">
+                        <strong>{{ $activePreOrder->name }}</strong>
+                        @if ($activePreOrder->description)
+                            <p class="tp-pre-order-description">{{ $activePreOrder->description }}</p>
+                        @endif
+                    </div>
+
+                    @php
+                        $progress = $preOrderService->getPreOrderProgress($activePreOrder, $product);
+                        $timeRemaining = $preOrderService->getTimeRemaining($activePreOrder);
+                    @endphp
+
+                    <div class="tp-pre-order-stats row mt-3">
+                        <div class="col-md-6">
+                            <div class="tp-pre-order-delivery">
+                                <span class="tp-pre-order-label">{{ __('Expected Delivery:') }}</span>
+                                <strong class="tp-pre-order-date">{{ $activePreOrder->expected_delivery_date->format('M d, Y') }}</strong>
+                            </div>
+                        </div>
+                        
+                        @if (!$progress['is_unlimited'])
+                            <div class="col-md-6">
+                                <div class="tp-pre-order-quantity">
+                                    <span class="tp-pre-order-label">{{ __('Available:') }}</span>
+                                    <strong class="tp-pre-order-available">
+                                        {{ $progress['available'] }} / {{ $progress['max_quantity'] }}
+                                    </strong>
+                                    @if ($preOrderService->isNearlySoldOut($activePreOrder, $product))
+                                        <span class="badge bg-warning ms-2">{{ __('Almost Sold Out!') }}</span>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+
+                    @if (!$timeRemaining['expired'])
+                        <div class="tp-pre-order-countdown mt-3">
+                            <span class="tp-pre-order-label">{{ __('Pre-order ends in:') }}</span>
+                            <div class="tp-product-details-countdown-time" data-countdown data-date="{{ $activePreOrder->pre_order_end_date }}">
+                                <ul>
+                                    <li><span data-days>{{ $timeRemaining['days'] }}</span>{{ trim(__(':days D', ['days' => null])) }}</li>
+                                    <li><span data-hours>{{ $timeRemaining['hours'] }}</span>{{ trim(__(':hours H', ['hours' => null])) }}</li>
+                                    <li><span data-minutes>{{ $timeRemaining['minutes'] }}</span>{{  trim( __(':minutes M', ['minutes' => null])) }}</li>
+                                    <li><span data-seconds>{{ $timeRemaining['seconds'] }}</span>{{ trim(__(':seconds S', ['seconds' => null])) }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if (!$progress['is_unlimited'])
+                        <div class="tp-pre-order-progress mt-3">
+                            <div class="progress">
+                                <div class="progress-bar" role="progressbar" style="width: {{ $progress['progress_percent'] }}%" 
+                                     aria-valuenow="{{ $progress['progress_percent'] }}" aria-valuemin="0" aria-valuemax="100">
+                                    {{ number_format($progress['progress_percent'], 1) }}%
+                                </div>
+                            </div>
+                            <small class="text-muted">{{ $progress['pre_ordered'] }} pre-ordered out of {{ $progress['max_quantity'] }}</small>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
+
     {!! apply_filters(ECOMMERCE_PRODUCT_DETAIL_EXTRA_HTML, null, $product) !!}
 
     @if (EcommerceHelper::isCartEnabled())

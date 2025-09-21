@@ -13,6 +13,9 @@ use Botble\Ecommerce\Events\OrderCreated;
 use Botble\Ecommerce\Events\OrderPaymentConfirmedEvent;
 use Botble\Ecommerce\Events\OrderPlacedEvent;
 use Botble\Ecommerce\Events\OrderReturnedEvent;
+use Botble\Ecommerce\Events\PreOrderCreated;
+use Botble\Ecommerce\Events\PreOrderDeliveryDateChanged;
+use Botble\Ecommerce\Events\PreOrderStatusChanged;
 use Botble\Ecommerce\Events\ProductFileUpdatedEvent;
 use Botble\Ecommerce\Events\ProductQuantityUpdatedEvent;
 use Botble\Ecommerce\Events\ProductVariationCreated;
@@ -27,7 +30,9 @@ use Botble\Ecommerce\Listeners\OrderCancelledNotification;
 use Botble\Ecommerce\Listeners\OrderCreatedNotification;
 use Botble\Ecommerce\Listeners\OrderPaymentConfirmedNotification;
 use Botble\Ecommerce\Listeners\OrderReturnedNotification;
+use Botble\Ecommerce\Listeners\PreOrderCreatedNotification;
 use Botble\Ecommerce\Listeners\RegisterEcommerceWidget;
+use Botble\Ecommerce\Listeners\SendPreOrderNotifications;
 use Botble\Ecommerce\Listeners\RenderingSiteMapListener;
 use Botble\Ecommerce\Listeners\SaveProductFaqListener;
 use Botble\Ecommerce\Listeners\SendMailsAfterCustomerEmailVerified;
@@ -116,6 +121,16 @@ class EventServiceProvider extends ServiceProvider
         ],
         ProductFileUpdatedEvent::class => [
             SendProductFileUpdatedNotification::class,
+        ],
+        PreOrderCreated::class => [
+            PreOrderCreatedNotification::class,
+            SendPreOrderNotifications::class,
+        ],
+        PreOrderStatusChanged::class => [
+            SendPreOrderNotifications::class,
+        ],
+        PreOrderDeliveryDateChanged::class => [
+            SendPreOrderNotifications::class,
         ],
     ];
 

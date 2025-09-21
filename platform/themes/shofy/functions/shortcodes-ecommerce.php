@@ -217,7 +217,7 @@ app()->booted(function (): void {
             ->where('id', $shortcode->flash_sale_id)
             ->wherePublished()
             ->with([
-                'products' => function (BelongsToMany|BaseQueryBuilder $query) use ($limit) {
+                'products' => function (BelongsToMany|BaseQueryBuilder $query)  {
                     $reviewParams = EcommerceHelper::withReviewsParams();
 
                     if (EcommerceHelper::isReviewEnabled()) {
@@ -227,15 +227,17 @@ app()->booted(function (): void {
                     return $query
                         ->wherePublished()
                         ->with(EcommerceHelper::withProductEagerLoadingRelations())
-                        ->take($limit)
+
                         ->withCount($reviewParams['withCount']);
                 },
             ])
             ->first();
 
         if (! $flashSale || $flashSale->products->isEmpty()) {
-            return null;
-        }
+
+        // Limit products after loading to avoid SQL issues with window functions
+        $flashSale->setRelation("products", $flashSale->products->take($limit));        // Limit products after loading to avoid SQL issues with window functions
+        $flashSale->setRelation("products", $flashSale->products->take($limit));        }
 
         return Theme::partial('shortcodes.ecommerce-flash-sale.index', compact('shortcode', 'flashSale'));
     });

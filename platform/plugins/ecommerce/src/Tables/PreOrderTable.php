@@ -115,15 +115,4 @@ class PreOrderTable extends TableAbstract
         ];
     }
 
-    public function renderTable($data = [], $mergeData = []): JsonResponse
-    {
-        if ($this->query()->count() === 0 &&
-            ! $this->request()->wantsJson() &&
-            $this->request()->input('filter_table_id') !== $this->getOption('id') && ! $this->request()->ajax()
-        ) {
-            return response()->json(["html" => view("plugins/ecommerce::pre-orders.intro")->render()]);
-        }
-
-        return parent::renderTable($data, $mergeData);
-    }
 } 

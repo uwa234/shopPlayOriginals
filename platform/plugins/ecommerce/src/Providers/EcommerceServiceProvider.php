@@ -367,6 +367,8 @@ class EcommerceServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Load pre-order constants
+        require_once __DIR__ . "/../../helpers/pre-order-constants.php";
         $this
             ->loadAndPublishConfigurations(['permissions'])
             ->loadAndPublishTranslations()

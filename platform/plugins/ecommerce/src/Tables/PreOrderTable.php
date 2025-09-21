@@ -121,7 +121,7 @@ class PreOrderTable extends TableAbstract
             ! $this->request()->wantsJson() &&
             $this->request()->input('filter_table_id') !== $this->getOption('id') && ! $this->request()->ajax()
         ) {
-            return view('plugins/ecommerce::pre-orders.intro')->render();
+            return response(view("plugins/ecommerce::pre-orders.intro")->render());
         }
 
         return parent::renderTable($data, $mergeData);

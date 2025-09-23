@@ -116,6 +116,13 @@ class ProductForm extends FormAbstract
                     ->defaultValue(false)
             )
             ->add(
+                'is_preorder_enabled',
+                OnOffField::class,
+                OnOffFieldOption::make()
+                    ->label('Enable Pre-Order')
+                    ->defaultValue(false)
+            )
+            ->add(
                 'categories[]',
                 TreeCategoryField::class,
                 SelectFieldOption::make()

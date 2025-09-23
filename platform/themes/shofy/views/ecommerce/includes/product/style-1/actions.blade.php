@@ -66,6 +66,8 @@
     </div>
 </div>
 
+@php($preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class))
+@php($activePreOrder = $preOrderService->getActivePreOrderForProduct($product))
 @if (EcommerceHelper::isCartEnabled())
     <div class="tp-product-add-cart-btn-large-wrapper">
         <button
@@ -92,11 +94,9 @@
                 <path fill-rule="evenodd" clip-rule="evenodd" d="M16.435 17.702C16.736 17.702 16.98 17.945 16.98 18.246C16.98 18.547 16.736 18.791 16.435 18.791C16.133 18.791 15.89 18.547 15.89 18.246C15.89 17.945 16.133 17.702 16.435 17.702Z" fill="currentColor"/>
                 <path fill-rule="evenodd" clip-rule="evenodd" d="M16.434 18.0409C16.322 18.0409 16.23 18.1329 16.23 18.2459C16.231 18.4749 16.641 18.4729 16.64 18.2459C16.64 18.1329 16.547 18.0409 16.434 18.0409ZM16.434 19.5409C15.72 19.5409 15.14 18.9599 15.14 18.2459C15.14 17.5319 15.72 16.9519 16.434 16.9519C17.149 16.9519 17.73 17.5319 17.73 18.2459C17.73 18.9599 17.149 19.5409 16.434 19.5409Z" fill="currentColor"/>
             </svg>
-            @if ($hasVariations)
-                {{ __('Select Options') }}
-            @else
-                {{ __('Add To Cart') }}
-            @endif
+            <span>
+                {{ $product->is_preorder_enabled && $activePreOrder ? __('Pre-Order') : __('Add To Cart') }}
+            </span>
         </button>
     </div>
 @endif

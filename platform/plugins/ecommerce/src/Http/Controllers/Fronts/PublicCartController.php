@@ -111,6 +111,39 @@ class PublicCartController extends BaseController
             $requestQuantity += $existingAddedToCart->qty;
         }
 
+        // Pre-order enforcement: require active pre-order and respect max quantity
+        if ($product->is_preorder_enabled) {
+            /** @var \Botble\Ecommerce\Services\PreOrderService $preOrderService */
+            $preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class);
+            $activePreOrder = $preOrderService->getActivePreOrderForProduct($product);
+
+            if (! $activePreOrder) {
+                return $response
+                    ->setError()
+                    ->setMessage(__('This product is only available for pre-order during the campaign window.'));
+            }
+
+            // Determine available quantity per pivot
+            $pivot = $activePreOrder->products()->where('product_id', $product->id)->first()?->pivot;
+            if ($pivot && $pivot->max_quantity) {
+                $remaining = max(0, (int) $pivot->max_quantity - (int) $pivot->pre_ordered);
+                if ($requestQuantity > $remaining) {
+                    return $response
+                        ->setError()
+                        ->setMessage(__('Only :qty units are available to pre-order for :product.', ['qty' => $remaining, 'product' => $product->name]));
+                }
+            }
+
+            // Attach preorder metadata into request extras so it flows to cart items
+            $extras = $request->input('extras', []);
+            $extras['preorder'] = [
+                'campaign_id' => $activePreOrder->id,
+                'expected_delivery_date' => (string) $activePreOrder->expected_delivery_date,
+                'message' => $activePreOrder->custom_pre_order_message ?: $activePreOrder->description,
+            ];
+            $request->merge(['extras' => $extras]);
+        }
+
         if (! $product->canAddToCart($requestQuantity)) {
             return $response
                 ->setError()

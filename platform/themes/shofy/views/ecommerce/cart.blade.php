@@ -37,7 +37,16 @@
                                                 </a>
                                                 <div class="tp-cart-title">
                                                     <input type="hidden" name="items[{{ $key }}][rowId]" value="{{ $cartItem->rowId }}">
-                                                    <a href="{{ $product->original_product->url }}" class="ms-0">{{ $product->original_product->name }}</a>
+                                                    <a href="{{ $product->original_product->url }}">{{ $product->original_product->name }}</a>
+                                                    @if (!empty($cartItem->options['extras']['preorder']))
+                                                        <div class="small text-primary fw-semibold mt-1">{{ __('Pre-Order') }}</div>
+                                                        @if(!empty($cartItem->options['extras']['preorder']['message']))
+                                                            <div class="small text-muted">{{ $cartItem->options['extras']['preorder']['message'] }}</div>
+                                                        @endif
+                                                        @if(!empty($cartItem->options['extras']['preorder']['expected_delivery_date']))
+                                                            <div class="small text-muted">{{ __('Expected Delivery:') }} {{ \Carbon\Carbon::parse($cartItem->options['extras']['preorder']['expected_delivery_date'])->format('M d, Y') }}</div>
+                                                        @endif
+                                                    @endif
                                                     <div class="small">
                                                         {!! $product->stock_status_html !!}
                                                     </div>

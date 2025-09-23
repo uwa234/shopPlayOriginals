@@ -98,10 +98,8 @@
         </div>
     @endif
 
-    @php
-        $preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class);
-        $activePreOrder = $preOrderService->getActivePreOrderForProduct($product);
-    @endphp
+    @php($preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class))
+    @php($activePreOrder = $preOrderService->getActivePreOrderForProduct($product))
 
     @if ($activePreOrder)
         <div class="tp-product-details-pre-order mt-25 mb-25">
@@ -219,7 +217,7 @@
                         data-bb-toggle="add-to-cart-in-form"
                         {!! EcommerceHelper::jsAttributes('add-to-cart-in-form', $product) !!}
                     >
-                        {{ __('Add To Cart') }}
+                        {{ $product->is_preorder_enabled && $activePreOrder ? __('Pre-Order') : __('Add To Cart') }}
                     </button>
                 </div>
             </div>
@@ -287,6 +285,11 @@
             </button>
         @endif
     </div>
+    @if ($product->is_preorder_enabled && $activePreOrder)
+        <input type="hidden" name="extras[preorder][campaign_id]" value="{{ $activePreOrder->id }}">
+        <input type="hidden" name="extras[preorder][expected_delivery_date]" value="{{ $activePreOrder->expected_delivery_date }}">
+        <input type="hidden" name="extras[preorder][message]" value="{{ $activePreOrder->custom_pre_order_message ?: $activePreOrder->description }}">
+    @endif
 </x-core::form>
 
 <div class="tp-product-details-query">

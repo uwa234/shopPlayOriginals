@@ -18,6 +18,7 @@ return [
         'allow_full_payment' => 'Allow Full Payment',
         'products' => 'Products',
         'product' => 'Product',
+        'product_settings' => 'Product Settings',
         'price' => 'Price',
         'max_quantity' => 'Max Quantity',
         'quantity_limit' => 'Quantity Limit',

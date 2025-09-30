@@ -80,7 +80,7 @@ class PreOrder extends BaseModel
     {
         return Attribute::get(function (): bool {
             $now = Carbon::now();
-            return $this->status === BaseStatusEnum::PUBLISHED &&
+            return $this->status == BaseStatusEnum::PUBLISHED &&
                 $this->pre_order_start_date->lte($now) &&
                 $this->pre_order_end_date->gte($now);
         });

@@ -85,7 +85,7 @@
         <div class="tp-product-details-countdown justify-content-between flex-wrap mt-25 mb-25">
             <h4 class="tp-product-details-countdown-title">
                 <x-core::icon name="ti ti-flame" />
-                {{ __('Pre-order:') }}
+                {{ __('Flash Sale:') }}
             </h4>
             <div class="tp-product-details-countdown-time" data-countdown data-date="{{ $flashSale->end_date }}">
                 <ul>

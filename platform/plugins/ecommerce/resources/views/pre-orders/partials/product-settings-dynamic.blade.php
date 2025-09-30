@@ -14,12 +14,35 @@ $(document).ready(function() {
     // Product data for dynamic generation
     const productData = @json($products ?? []);
     
+    console.log('Product data loaded:', productData.length, 'products');
+    
     // Function to update product settings visibility
     function updateProductSettings() {
         const selectedProducts = [];
-        $('input[name="selected_products[]"]:checked').each(function() {
+        
+        // Try multiple selectors to find the checkboxes
+        let checkboxSelector = 'input[name="selected_products[]"]:checked';
+        let checkboxes = $(checkboxSelector);
+        
+        // If not found, try without the brackets
+        if (checkboxes.length === 0) {
+            checkboxSelector = 'input[name="selected_products"]:checked';
+            checkboxes = $(checkboxSelector);
+        }
+        
+        // If still not found, try finding by ID pattern
+        if (checkboxes.length === 0) {
+            checkboxSelector = 'input[id^="selected-products-item-"]:checked';
+            checkboxes = $(checkboxSelector);
+        }
+        
+        console.log('Found checkboxes with selector:', checkboxSelector, 'count:', checkboxes.length);
+        
+        checkboxes.each(function() {
             selectedProducts.push(parseInt($(this).val()));
         });
+        
+        console.log('Selected products:', selectedProducts);
         
         if (selectedProducts.length > 0) {
             $('#product-settings-container').show();
@@ -32,6 +55,7 @@ $(document).ready(function() {
     
     // Function to generate product settings HTML
     function generateProductSettings(selectedProductIds) {
+        console.log('Generating settings for:', selectedProductIds);
         let html = '';
         
         selectedProductIds.forEach(function(productId) {
@@ -111,10 +135,25 @@ $(document).ready(function() {
         $('#selected-products-settings').html(html);
     }
     
-    // Add event listeners to checkboxes
-    $('input[name="selected_products[]"]').on('change', updateProductSettings);
+    // Add event listeners to checkboxes - try multiple selectors
+    let checkboxes = $('input[name="selected_products[]"]');
+    if (checkboxes.length === 0) {
+        checkboxes = $('input[name="selected_products"]');
+    }
+    if (checkboxes.length === 0) {
+        checkboxes = $('input[id^="selected-products-item-"]');
+    }
+    
+    console.log('Attaching event listeners to', checkboxes.length, 'checkboxes');
+    checkboxes.on('change', updateProductSettings);
+    
+    // Also watch for any dynamic checkbox additions
+    $(document).on('change', 'input[name="selected_products[]"], input[name="selected_products"], input[id^="selected-products-item-"]', updateProductSettings);
     
     // Initial check for any pre-selected products
-    updateProductSettings();
+    setTimeout(function() {
+        console.log('Running initial update...');
+        updateProductSettings();
+    }, 500);
 });
 </script>

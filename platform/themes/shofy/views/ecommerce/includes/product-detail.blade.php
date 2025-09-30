@@ -123,12 +123,14 @@
                     @endphp
 
                     <div class="tp-pre-order-stats row mt-3">
-                        <div class="col-md-6">
-                            <div class="tp-pre-order-delivery">
-                                <span class="tp-pre-order-label">{{ __('Expected Delivery:') }}</span>
-                                <strong class="tp-pre-order-date">{{ $activePreOrder->expected_delivery_date->format('M d, Y') }}</strong>
+                        @if ($activePreOrder->expected_delivery_date)
+                            <div class="col-md-6">
+                                <div class="tp-pre-order-delivery">
+                                    <span class="tp-pre-order-label">{{ __('Expected Delivery:') }}</span>
+                                    <strong class="tp-pre-order-date">{{ $activePreOrder->expected_delivery_date->format('M d, Y') }}</strong>
+                                </div>
                             </div>
-                        </div>
+                        @endif
                         
                         @if (!$progress['is_unlimited'])
                             <div class="col-md-6">

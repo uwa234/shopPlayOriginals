@@ -70,6 +70,9 @@
     </div>
 @endif
 
+@php($preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class))
+@php($activePreOrder = $preOrderService->getActivePreOrderForProduct($product))
+
 <x-core::form :url="route('public.cart.add-to-cart')" method="POST" class="product-form">
     <input type="hidden" name="id" value="{{ $product->getIdForCart() }}" />
 
@@ -97,9 +100,6 @@
             </div>
         </div>
     @endif
-
-    @php($preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class))
-    @php($activePreOrder = $preOrderService->getActivePreOrderForProduct($product))
 
     @if ($activePreOrder)
         <div class="tp-product-details-pre-order mt-25 mb-25">

@@ -149,7 +149,7 @@ class PreOrderForm extends FormAbstract
                 $pivot = $product->pivot;
                 
                 $this->add("product_section_{$product->id}", 'html', [
-                    'html' => '<div class="card mt-3"><div class="card-header"><strong>' . $product->name . '</strong> <small class="text-muted">(SKU: ' . $product->sku . ', Default Price: $' . number_format($product->front_sale_price, 2) . ')</small></div><div class="card-body"><div class="row">',
+                    'html' => '<div class="card mt-3"><div class="card-header"><strong>' . $product->name . '</strong> <small class="text-muted">(SKU: ' . $product->sku . ', Default Price: $' . number_format($product->front_sale_price, 2) . ')</small></div><div class="card-body"><input type="hidden" name="products[' . $product->id . '][product_id]" value="' . $product->id . '"><div class="row">',
                 ])
                 ->add("products[{$product->id}][price]", 'number', [
                     'label' => trans('plugins/ecommerce::pre-orders.forms.price'),

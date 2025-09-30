@@ -36,12 +36,12 @@ class PreOrderController extends BaseController
 
         if ($request->input('products')) {
             $products = [];
-            foreach ($request->input('products') as $productData) {
-                $products[$productData['product_id']] = [
+            foreach ($request->input('products') as $productId => $productData) {
+                $products[$productId] = [
                     'price' => $productData['price'] ?? 0,
                     'max_quantity' => $productData['max_quantity'] ?? null,
                     'pre_ordered' => 0,
-                    'is_active' => $productData['is_active'] ?? true,
+                    'is_active' => isset($productData['is_active']) ? (bool)$productData['is_active'] : true,
                     'deposit_amount' => $productData['deposit_amount'] ?? null,
                     'deposit_percentage' => $productData['deposit_percentage'] ?? null,
                 ];
@@ -79,12 +79,12 @@ class PreOrderController extends BaseController
 
         if ($request->input('products')) {
             $products = [];
-            foreach ($request->input('products') as $productData) {
-                $products[$productData['product_id']] = [
+            foreach ($request->input('products') as $productId => $productData) {
+                $products[$productId] = [
                     'price' => $productData['price'] ?? 0,
                     'max_quantity' => $productData['max_quantity'] ?? null,
                     'pre_ordered' => $productData['pre_ordered'] ?? 0,
-                    'is_active' => $productData['is_active'] ?? true,
+                    'is_active' => isset($productData['is_active']) ? (bool)$productData['is_active'] : true,
                     'deposit_amount' => $productData['deposit_amount'] ?? null,
                     'deposit_percentage' => $productData['deposit_percentage'] ?? null,
                 ];

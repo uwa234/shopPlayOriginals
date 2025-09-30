@@ -55,6 +55,7 @@ $(document).ready(function() {
                 html += '</div>';
                 html += '</div>';
                 html += '<div class="card-body">';
+                html += '<input type="hidden" name="products[' + productId + '][product_id]" value="' + productId + '">';
                 html += '<div class="row">';
                 html += '<div class="col-md-3">';
                 html += '<div class="form-group">';

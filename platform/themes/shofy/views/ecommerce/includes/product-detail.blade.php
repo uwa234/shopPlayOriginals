@@ -122,17 +122,18 @@
                         $timeRemaining = $preOrderService->getTimeRemaining($activePreOrder);
                     @endphp
 
-                    <div class="tp-pre-order-stats row mt-3">
-                        @if ($activePreOrder->expected_delivery_date)
-                            <div class="col-md-6">
-                                <div class="tp-pre-order-delivery">
-                                    <span class="tp-pre-order-label">{{ __('Expected Delivery:') }}</span>
-                                    <strong class="tp-pre-order-date">{{ $activePreOrder->expected_delivery_date->format('M d, Y') }}</strong>
+                    @if ($progress && $timeRemaining)
+                        <div class="tp-pre-order-stats row mt-3">
+                            @if ($activePreOrder->expected_delivery_date)
+                                <div class="col-md-6">
+                                    <div class="tp-pre-order-delivery">
+                                        <span class="tp-pre-order-label">{{ __('Expected Delivery:') }}</span>
+                                        <strong class="tp-pre-order-date">{{ $activePreOrder->expected_delivery_date->format('M d, Y') }}</strong>
+                                    </div>
                                 </div>
-                            </div>
-                        @endif
-                        
-                        @if (!$progress['is_unlimited'])
+                            @endif
+                            
+                            @if (!$progress['is_unlimited'])
                             <div class="col-md-6">
                                 <div class="tp-pre-order-quantity">
                                     <span class="tp-pre-order-label">{{ __('Available:') }}</span>
@@ -172,6 +173,7 @@
                             <small class="text-muted">{{ $progress['pre_ordered'] }} pre-ordered out of {{ $progress['max_quantity'] }}</small>
                         </div>
                     @endif
+                @endif
                 </div>
             </div>
         </div>

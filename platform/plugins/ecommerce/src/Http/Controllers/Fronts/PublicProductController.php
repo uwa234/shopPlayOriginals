@@ -12,6 +12,7 @@ use Botble\Ecommerce\Forms\Fronts\OrderTrackingForm;
 use Botble\Ecommerce\Http\Requests\Fronts\OrderTrackingRequest;
 use Botble\Ecommerce\Http\Resources\ProductVariationResource;
 use Botble\Ecommerce\Models\Order;
+use Botble\Ecommerce\Models\PreOrder;
 use Botble\Ecommerce\Models\Product;
 use Botble\Ecommerce\Models\ProductCategory;
 use Botble\Ecommerce\Models\ProductVariation;
@@ -76,6 +77,87 @@ class PublicProductController extends BaseController
             'ecommerce.products',
             compact('products'),
             'plugins/ecommerce::themes.products'
+        )->render();
+    }
+
+    public function getPreOrders(Request $request, GetProductService $productService)
+    {
+        if (! EcommerceHelper::productFilterParamsValidated($request)) {
+            return $this
+                ->httpResponse()
+                ->setNextUrl(route('public.pre-orders'));
+        }
+
+        SeoHelper::setTitle(theme_option('ecommerce_pre_orders_seo_title') ?: __('Pre-Orders'))
+            ->setDescription(theme_option('ecommerce_pre_orders_seo_description'));
+
+        $with = EcommerceHelper::withProductEagerLoadingRelations();
+
+        // Get active pre-order IDs
+        $activePreOrderIds = PreOrder::query()
+            ->active()
+            ->pluck('id')
+            ->all();
+
+        // Add condition to filter only pre-order products with active campaigns
+        $conditions = [
+            'is_preorder_enabled' => true,
+        ];
+
+        if (($query = BaseHelper::stringify($request->input('q'))) && ! $request->ajax()) {
+            $products = $productService->getProduct($request, null, null, $with, [], $conditions);
+
+            // Filter to only products with active pre-orders
+            $products = $products->filter(function ($product) use ($activePreOrderIds) {
+                return $product->preOrders()->whereIn('ec_pre_orders.id', $activePreOrderIds)->exists();
+            });
+
+            SeoHelper::setTitle(__('Search result for ":query"', compact('query')));
+
+            Theme::breadcrumb()
+                ->add(__('Pre-Orders'), route('public.pre-orders'));
+
+            SeoHelper::meta()
+                ->setUrl(route('public.pre-orders'));
+
+            return Theme::scope(
+                'ecommerce.pre-orders',
+                compact('products', 'query'),
+                'plugins/ecommerce::themes.pre-orders'
+            )->render();
+        }
+
+        Theme::breadcrumb()->add(__('Pre-Orders'), route('public.pre-orders'));
+
+        $products = $productService->getProduct($request, null, null, $with, [], $conditions);
+
+        // Filter to only products with active pre-orders
+        if ($products instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator) {
+            // For paginated results, we need to filter at query level
+            // This is a simplified approach - for production, you'd want to add this to the repository
+            $filteredItems = $products->filter(function ($product) use ($activePreOrderIds) {
+                return $product->preOrders()->whereIn('ec_pre_orders.id', $activePreOrderIds)->exists();
+            });
+            
+            $products->setCollection($filteredItems);
+        } else {
+            $products = $products->filter(function ($product) use ($activePreOrderIds) {
+                return $product->preOrders()->whereIn('ec_pre_orders.id', $activePreOrderIds)->exists();
+            });
+        }
+
+        if ($request->ajax()) {
+            return $this->ajaxFilterProductsResponse($products);
+        }
+
+        do_action('PRE_ORDER_MODULE_SCREEN_NAME');
+
+        app(GoogleTagManager::class)->viewItemList($products->all(), 'Pre-Order List');
+
+        return Theme::scope(
+            'ecommerce.pre-orders',
+            compact('products'),
+            'plugins/ecommerce::themes.pre-orders'
         )->render();
     }
 

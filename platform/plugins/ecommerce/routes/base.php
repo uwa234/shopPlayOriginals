@@ -213,6 +213,11 @@ Theme::registerRoutes(function (): void {
                 'as' => 'public.products',
             ]);
 
+            Route::get('pre-orders', [
+                'uses' => 'PublicProductController@getPreOrders',
+                'as' => 'public.pre-orders',
+            ]);
+
             Route::get('currency/switch/{code?}', [
                 'as' => 'public.change-currency',
                 'uses' => 'PublicEcommerceController@changeCurrency',

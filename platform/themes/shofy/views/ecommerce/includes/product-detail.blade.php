@@ -101,7 +101,7 @@
         </div>
     @endif
 
-    @if ($activePreOrder)
+    @if ($product->is_preorder_enabled && $activePreOrder)
         <div class="tp-product-details-pre-order mt-25 mb-25">
             <div class="tp-product-pre-order-info">
                 <h4 class="tp-product-pre-order-title">
@@ -303,7 +303,7 @@
         <div class="tp-product-details-query-item">
             <span>{{ __('Category:') }}</span>
             @foreach($product->categories as $category)
-                <a href="{{ $category->url }}" title="{{ $category->name }}">{{ $category->name }}</a><span class="me-1">@if (!$loop->last),@endif</span>
+                <a href="{{ $category->url }}" title="{{ $category->name }}">{{ $category->name }}</a>@if (!$loop->last)<span class="me-1">,</span>@endif
             @endforeach
         </div>
     @endif
@@ -311,7 +311,7 @@
         <div class="tp-product-details-query-item">
             <span>{{ __('Tag:') }}</span>
             @foreach($product->tags as $tag)
-                <a href="{{ $tag->url }}">{{ $tag->name }}</a><span class="me-1">@if (!$loop->last),@endif</span>
+                <a href="{{ $tag->url }}">{{ $tag->name }}</a>@if (!$loop->last)<span class="me-1">,</span>@endif
             @endforeach
         </div>
     @endif

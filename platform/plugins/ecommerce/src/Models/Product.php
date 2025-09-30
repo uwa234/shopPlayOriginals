@@ -503,6 +503,13 @@ class Product extends BaseModel
             ->latest();
     }
 
+    public function preOrders(): BelongsToMany
+    {
+        return $this->original_product
+            ->belongsToMany(PreOrder::class, 'ec_pre_order_products', 'product_id', 'pre_order_id')
+            ->withPivot(['price', 'max_quantity', 'pre_ordered', 'is_active', 'deposit_amount', 'deposit_percentage']);
+    }
+
     protected function totalTaxesPercentage(): Attribute
     {
         return Attribute::get(function () {

@@ -70,8 +70,10 @@
     </div>
 @endif
 
-@php($preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class))
-@php($activePreOrder = $preOrderService->getActivePreOrderForProduct($product))
+@php
+$preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class);
+$activePreOrder = $preOrderService->getActivePreOrderForProduct($product);
+@endphp
 
 <x-core::form :url="route('public.cart.add-to-cart')" method="POST" class="product-form">
     <input type="hidden" name="id" value="{{ $product->getIdForCart() }}" />
@@ -134,21 +136,21 @@
                             @endif
                             
                             @if (!$progress['is_unlimited'])
-                            <div class="col-md-6">
-                                <div class="tp-pre-order-quantity">
-                                    <span class="tp-pre-order-label">{{ __('Available:') }}</span>
-                                    <strong class="tp-pre-order-available">
-                                        {{ $progress['available'] }} / {{ $progress['max_quantity'] }}
-                                    </strong>
-                                    @if ($preOrderService->isNearlySoldOut($activePreOrder, $product))
-                                        <span class="badge bg-warning ms-2">{{ __('Almost Sold Out!') }}</span>
-                                    @endif
+                                <div class="col-md-6">
+                                    <div class="tp-pre-order-quantity">
+                                        <span class="tp-pre-order-label">{{ __('Available:') }}</span>
+                                        <strong class="tp-pre-order-available">
+                                            {{ $progress['available'] }} / {{ $progress['max_quantity'] }}
+                                        </strong>
+                                        @if ($preOrderService->isNearlySoldOut($activePreOrder, $product))
+                                            <span class="badge bg-warning ms-2">{{ __('Almost Sold Out!') }}</span>
+                                        @endif
+                                    </div>
                                 </div>
-                            </div>
-                        @endif
-                    </div>
+                            @endif
+                        </div>
 
-                    @if (!$timeRemaining['expired'])
+                        @if (!$timeRemaining['expired'])
                         <div class="tp-pre-order-countdown mt-3">
                             <span class="tp-pre-order-label">{{ __('Pre-order ends in:') }}</span>
                             <div class="tp-product-details-countdown-time" data-countdown data-date="{{ $activePreOrder->pre_order_end_date }}">

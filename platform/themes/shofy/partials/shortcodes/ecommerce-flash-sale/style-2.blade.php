@@ -30,9 +30,11 @@
                         @endif
                     @endif
 
-                    <div class="tp-deal-countdown">
-                        @include(Theme::getThemeNamespace('views.ecommerce.includes.product.countdown'), ['endDate' => $flashSale->end_date])
-                    </div>
+                    @if($flashSale)
+                        <div class="tp-deal-countdown">
+                            @include(Theme::getThemeNamespace('views.ecommerce.includes.product.countdown'), ['endDate' => $flashSale->end_date])
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

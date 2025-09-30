@@ -227,7 +227,7 @@ $activePreOrder = $preOrderService->getActivePreOrderForProduct($product);
                     </button>
                 </div>
             </div>
-            @if (EcommerceHelper::isQuickBuyButtonEnabled())
+            @if (EcommerceHelper::isQuickBuyButtonEnabled() && !($product->is_preorder_enabled && $activePreOrder))
                 <button
                     type="submit"
                     name="checkout"

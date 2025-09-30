@@ -3,9 +3,9 @@
 namespace Botble\Ecommerce\Http\Requests;
 
 use Botble\Base\Enums\BaseStatusEnum;
-use Botble\Base\Rules\EnumRule;
 use Botble\Base\Rules\OnOffRule;
 use Botble\Support\Http\Requests\Request;
+use Illuminate\Validation\Rule;
 
 class PreOrderRequest extends Request
 {
@@ -21,7 +21,7 @@ class PreOrderRequest extends Request
             'deposit_amount' => 'nullable|numeric|min:0',
             'deposit_percentage' => 'nullable|numeric|min:0|max:100',
             'allow_full_payment' => [new OnOffRule()],
-            'status' => ['required', new EnumRule(BaseStatusEnum::class)],
+            'status' => ['required', Rule::in(BaseStatusEnum::values())],
             'selected_products' => 'nullable|array',
             'selected_products.*' => 'exists:ec_products,id',
             'products' => 'nullable|array',

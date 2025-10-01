@@ -120,26 +120,59 @@ class PreOrder extends BaseModel
 
     public function calculateDepositAmount(Product $product, int $quantity = 1): float
     {
-        $productPrice = $this->products()->where('product_id', $product->id)->first()?->pivot?->price ?? $product->price;
+        // Try to get pivot data from loaded relationship first (more efficient)
+        $productPivot = null;
+        if ($this->relationLoaded('products')) {
+            $loadedProduct = $this->products->firstWhere('id', $product->id);
+            $productPivot = $loadedProduct?->pivot;
+        }
+        
+        // If not loaded, query it
+        if (!$productPivot) {
+            $productPivot = $this->products()->where('product_id', $product->id)->first()?->pivot;
+        }
+        
+        // Debug logging
+        \Log::info('Calculating deposit for product', [
+            'product_id' => $product->id,
+            'product_name' => $product->name,
+            'relation_loaded' => $this->relationLoaded('products'),
+            'pivot_deposit_amount' => $productPivot?->deposit_amount,
+            'pivot_deposit_percentage' => $productPivot?->deposit_percentage,
+            'pivot_price' => $productPivot?->price,
+            'global_deposit_amount' => $this->deposit_amount,
+            'global_deposit_percentage' => $this->deposit_percentage,
+        ]);
+        
+        // Use pivot price if set and not 0, otherwise use product price
+        $productPrice = (!empty($productPivot?->price)) ? $productPivot->price : $product->price;
         $totalAmount = $productPrice * $quantity;
 
         // Check product-specific deposit first
-        $productPivot = $this->products()->where('product_id', $product->id)->first()?->pivot;
-        if ($productPivot?->deposit_amount) {
-            return $productPivot->deposit_amount * $quantity;
+        if (!empty($productPivot?->deposit_amount)) {
+            $result = $productPivot->deposit_amount * $quantity;
+            \Log::info('Using product-specific deposit amount', ['deposit' => $result]);
+            return $result;
         }
-        if ($productPivot?->deposit_percentage) {
-            return ($totalAmount * $productPivot->deposit_percentage) / 100;
+        if (!empty($productPivot?->deposit_percentage)) {
+            $result = ($totalAmount * $productPivot->deposit_percentage) / 100;
+            \Log::info('Using product-specific deposit percentage', ['deposit' => $result]);
+            return $result;
         }
 
         // Fall back to pre-order level deposit
-        if ($this->deposit_amount) {
-            return $this->deposit_amount * $quantity;
+        if (!empty($this->deposit_amount)) {
+            $result = $this->deposit_amount * $quantity;
+            \Log::info('Using global deposit amount', ['deposit' => $result]);
+            return $result;
         }
-        if ($this->deposit_percentage) {
-            return ($totalAmount * $this->deposit_percentage) / 100;
+        if (!empty($this->deposit_percentage)) {
+            $result = ($totalAmount * $this->deposit_percentage) / 100;
+            \Log::info('Using global deposit percentage', ['deposit' => $result]);
+            return $result;
         }
 
+        \Log::info('No deposit configured, using full amount', ['deposit' => $totalAmount]);
         return $totalAmount; // Full payment if no deposit configured
     }
 

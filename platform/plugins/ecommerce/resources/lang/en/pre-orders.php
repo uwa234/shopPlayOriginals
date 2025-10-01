@@ -87,6 +87,17 @@ return [
         'deposit' => 'Deposit Payment',
         'full_payment' => 'Full Payment',
     ],
+    'checkout' => [
+        'title' => 'Pre-Order Payment Options',
+        'campaign' => 'Campaign: :name',
+        'deposit_required' => 'Deposit Required',
+        'deposit_required_message' => 'This pre-order requires a deposit payment of :amount',
+        'full_payment_only' => 'Full payment of :amount is required for this pre-order',
+        'deposit_option' => 'Deposit Payment',
+        'full_payment_option' => 'Full Payment',
+        'pay_now_and_later' => 'Pay :amount now, and :remaining later',
+        'pay_full_now' => 'Pay the full amount now',
+    ],
     "intro" => [
         "description" => "Manage pre-order campaigns for your products. Create time-limited pre-orders with quantity limits, deposit options, and delivery dates.",
     ],

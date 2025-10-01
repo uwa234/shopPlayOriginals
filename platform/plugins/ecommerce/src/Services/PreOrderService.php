@@ -31,6 +31,9 @@ class PreOrderService
     {
         return PreOrder::query()
             ->active()
+            ->with(['products' => function ($query) use ($product) {
+                $query->where('product_id', $product->id);
+            }])
             ->whereHas('products', function ($query) use ($product) {
                 $query->where('product_id', $product->id)
                       ->where('is_active', true);

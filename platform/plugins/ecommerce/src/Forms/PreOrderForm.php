@@ -95,7 +95,7 @@ class PreOrderForm extends FormAbstract
                         ->select(['id', 'name', 'price', 'sale_price', 'image', 'sku'])
                         ->get()
                         ->map(function ($product) {
-                            return [
+                            $productData = [
                                 'id' => $product->id,
                                 'name' => $product->name,
                                 'sku' => $product->sku,
@@ -103,6 +103,23 @@ class PreOrderForm extends FormAbstract
                                 'sale_price' => $product->sale_price,
                                 'image' => $product->image ? \Botble\Media\Facades\RvMedia::getImageUrl($product->image, 'thumb') : null,
                             ];
+                            
+                            // Add pivot data if this is an existing pre-order
+                            if ($this->getModel() && $this->getModel()->exists) {
+                                $pivot = $this->getModel()->products()->where('product_id', $product->id)->first()?->pivot;
+                                if ($pivot) {
+                                    $productData['pivot'] = [
+                                        'price' => $pivot->price,
+                                        'max_quantity' => $pivot->max_quantity,
+                                        'deposit_amount' => $pivot->deposit_amount,
+                                        'deposit_percentage' => $pivot->deposit_percentage,
+                                        'is_active' => $pivot->is_active,
+                                        'pre_ordered' => $pivot->pre_ordered,
+                                    ];
+                                }
+                            }
+                            
+                            return $productData;
                         })
                 ])->render(),
             ])

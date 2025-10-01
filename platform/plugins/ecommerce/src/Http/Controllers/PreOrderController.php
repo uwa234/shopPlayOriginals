@@ -38,12 +38,12 @@ class PreOrderController extends BaseController
             $products = [];
             foreach ($request->input('products') as $productId => $productData) {
                 $products[$productId] = [
-                    'price' => $productData['price'] ?? 0,
-                    'max_quantity' => $productData['max_quantity'] ?? null,
+                    'price' => !empty($productData['price']) ? $productData['price'] : null,
+                    'max_quantity' => !empty($productData['max_quantity']) ? $productData['max_quantity'] : null,
                     'pre_ordered' => 0,
                     'is_active' => isset($productData['is_active']) ? (bool)$productData['is_active'] : true,
-                    'deposit_amount' => $productData['deposit_amount'] ?? null,
-                    'deposit_percentage' => $productData['deposit_percentage'] ?? null,
+                    'deposit_amount' => !empty($productData['deposit_amount']) ? $productData['deposit_amount'] : null,
+                    'deposit_percentage' => !empty($productData['deposit_percentage']) ? $productData['deposit_percentage'] : null,
                 ];
             }
             $preOrder->products()->sync($products);
@@ -81,12 +81,12 @@ class PreOrderController extends BaseController
             $products = [];
             foreach ($request->input('products') as $productId => $productData) {
                 $products[$productId] = [
-                    'price' => $productData['price'] ?? 0,
-                    'max_quantity' => $productData['max_quantity'] ?? null,
+                    'price' => !empty($productData['price']) ? $productData['price'] : null,
+                    'max_quantity' => !empty($productData['max_quantity']) ? $productData['max_quantity'] : null,
                     'pre_ordered' => $productData['pre_ordered'] ?? 0,
                     'is_active' => isset($productData['is_active']) ? (bool)$productData['is_active'] : true,
-                    'deposit_amount' => $productData['deposit_amount'] ?? null,
-                    'deposit_percentage' => $productData['deposit_percentage'] ?? null,
+                    'deposit_amount' => !empty($productData['deposit_amount']) ? $productData['deposit_amount'] : null,
+                    'deposit_percentage' => !empty($productData['deposit_percentage']) ? $productData['deposit_percentage'] : null,
                 ];
             }
             $preOrder->products()->sync($products);

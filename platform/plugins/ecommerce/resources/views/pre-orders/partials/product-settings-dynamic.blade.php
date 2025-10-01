@@ -62,6 +62,16 @@ $(document).ready(function() {
             const product = productData.find(function(p) { return p.id === productId; });
             if (product) {
                 const defaultPrice = product.sale_price || product.price;
+                const pivot = product.pivot || {};
+                
+                // Get saved values or empty strings
+                const savedPrice = pivot.price || '';
+                const savedMaxQty = pivot.max_quantity || '';
+                const savedDepositAmount = pivot.deposit_amount || '';
+                const savedDepositPercentage = pivot.deposit_percentage || '';
+                const isActive = pivot.is_active !== undefined ? pivot.is_active : true;
+                const preOrdered = pivot.pre_ordered || 0;
+                
                 html += '<div class="card mt-3" id="product-settings-' + productId + '">';
                 html += '<div class="card-header">';
                 html += '<div class="row align-items-center">';
@@ -84,28 +94,28 @@ $(document).ready(function() {
                 html += '<div class="col-md-3">';
                 html += '<div class="form-group">';
                 html += '<label class="control-label">Custom Price</label>';
-                html += '<input type="number" name="products[' + productId + '][price]" class="form-control" placeholder="Leave empty for default price" step="0.01" min="0">';
+                html += '<input type="number" name="products[' + productId + '][price]" class="form-control" placeholder="Leave empty for default price" step="0.01" min="0" value="' + savedPrice + '">';
                 html += '<small class="text-muted">Leave empty to use default price: $' + parseFloat(defaultPrice).toFixed(2) + '</small>';
                 html += '</div>';
                 html += '</div>';
                 html += '<div class="col-md-3">';
                 html += '<div class="form-group">';
                 html += '<label class="control-label">Max Quantity</label>';
-                html += '<input type="number" name="products[' + productId + '][max_quantity]" class="form-control" placeholder="No limit" min="1">';
+                html += '<input type="number" name="products[' + productId + '][max_quantity]" class="form-control" placeholder="No limit" min="1" value="' + savedMaxQty + '">';
                 html += '<small class="text-muted">Maximum quantity for this pre-order</small>';
                 html += '</div>';
                 html += '</div>';
                 html += '<div class="col-md-3">';
                 html += '<div class="form-group">';
                 html += '<label class="control-label">Deposit Amount</label>';
-                html += '<input type="number" name="products[' + productId + '][deposit_amount]" class="form-control" placeholder="Override global deposit" step="0.01" min="0">';
+                html += '<input type="number" name="products[' + productId + '][deposit_amount]" class="form-control" placeholder="Override global deposit" step="0.01" min="0" value="' + savedDepositAmount + '">';
                 html += '<small class="text-muted">Override global deposit setting</small>';
                 html += '</div>';
                 html += '</div>';
                 html += '<div class="col-md-3">';
                 html += '<div class="form-group">';
                 html += '<label class="control-label">Deposit Percentage</label>';
-                html += '<input type="number" name="products[' + productId + '][deposit_percentage]" class="form-control" placeholder="Override global %" step="0.01" min="0" max="100">';
+                html += '<input type="number" name="products[' + productId + '][deposit_percentage]" class="form-control" placeholder="Override global %" step="0.01" min="0" max="100" value="' + savedDepositPercentage + '">';
                 html += '<small class="text-muted">Override global percentage</small>';
                 html += '</div>';
                 html += '</div>';
@@ -114,7 +124,7 @@ $(document).ready(function() {
                 html += '<div class="col-md-6">';
                 html += '<div class="form-group">';
                 html += '<div class="form-check">';
-                html += '<input type="checkbox" name="products[' + productId + '][is_active]" class="form-check-input" value="1" checked>';
+                html += '<input type="checkbox" name="products[' + productId + '][is_active]" class="form-check-input" value="1" ' + (isActive ? 'checked' : '') + '>';
                 html += '<label class="form-check-label">Active</label>';
                 html += '</div>';
                 html += '</div>';
@@ -122,7 +132,7 @@ $(document).ready(function() {
                 html += '<div class="col-md-6">';
                 html += '<div class="form-group">';
                 html += '<label class="control-label">Pre-ordered Count</label>';
-                html += '<input type="number" name="products[' + productId + '][pre_ordered]" class="form-control" value="0" readonly min="0">';
+                html += '<input type="number" name="products[' + productId + '][pre_ordered]" class="form-control" value="' + preOrdered + '" readonly min="0">';
                 html += '<small class="text-muted">This will be updated automatically</small>';
                 html += '</div>';
                 html += '</div>';

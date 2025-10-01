@@ -189,6 +189,13 @@ class HookServiceProvider extends ServiceProvider
             add_filter(BASE_FILTER_APPEND_MENU_NAME, [$this, 'getPendingOrders'], 130, 2);
             add_filter(BASE_FILTER_MENU_ITEMS_COUNT, [$this, 'getMenuItemCount'], 120);
             add_filter(RENDER_PRODUCTS_IN_CHECKOUT_PAGE, [$this, 'renderProductsInCheckoutPage'], 1000);
+            
+            add_filter('ecommerce_checkout_form_before_payment_form', [$this, 'showPreOrderPaymentOptions'], 10, 2);
+            
+            add_action('ecommerce_before_processing_payment', [$this, 'handlePreOrderPayments'], 10, 4);
+            
+            // Handle preorder payment type changes during AJAX checkout updates
+            add_action('ecommerce_before_calculate_checkout_data', [$this, 'handlePreOrderPaymentTypeUpdate'], 10, 2);
 
             add_filter('cms_unauthenticated_redirect_to', function ($redirectCallback, $request) {
                 return $request->expectsJson() ? null : route('customer.login');
@@ -1372,4 +1379,148 @@ class HookServiceProvider extends ServiceProvider
 
         return $html;
     }
+    
+    public function showPreOrderPaymentOptions(?string $html = null, ?Collection $products = null): string
+    {
+        return ($html ?? '') . view('plugins/ecommerce::orders.partials.preorder-payment-options')->render();
+    }
+    
+    public function handlePreOrderPaymentTypeUpdate($request, $products): void
+    {
+        $preorderPaymentTypes = $request->input('preorder_payment_type', []);
+        
+        if (empty($preorderPaymentTypes)) {
+            \Log::info('No preorder payment types in request');
+            return;
+        }
+        
+        \Log::info('Processing preorder payment type update', ['types' => $preorderPaymentTypes]);
+        
+        $preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class);
+        
+        foreach ($preorderPaymentTypes as $rowId => $paymentType) {
+            $cartItem = Cart::instance('cart')->get($rowId);
+            if (!$cartItem) {
+                \Log::info('Cart item not found', ['rowId' => $rowId]);
+                continue;
+            }
+            
+            // Check if this is a preorder item
+            if (!isset($cartItem->options['extras']['preorder']['campaign_id'])) {
+                \Log::info('Not a preorder item', ['rowId' => $rowId]);
+                continue;
+            }
+            
+            $product = \Botble\Ecommerce\Models\Product::find($cartItem->id);
+            if (!$product || !$product->is_preorder_enabled) {
+                \Log::info('Product not found or preorder not enabled', ['product_id' => $cartItem->id]);
+                continue;
+            }
+            
+            $activePreOrder = $preOrderService->getActivePreOrderForProduct($product);
+            if (!$activePreOrder) {
+                \Log::info('No active preorder campaign', ['product_id' => $product->id]);
+                continue;
+            }
+            
+            // Store the original price if not already stored
+            $originalPrice = $cartItem->options['original_price'] ?? $product->front_sale_price;
+            
+            // Calculate the new price based on payment type
+            $newPrice = $paymentType === \Botble\Ecommerce\Enums\PreOrderPaymentTypeEnum::DEPOSIT
+                ? $activePreOrder->calculateDepositAmount($product, 1)
+                : $originalPrice;
+            
+            \Log::info('Updating cart item price', [
+                'rowId' => $rowId,
+                'old_price' => $cartItem->price,
+                'new_price' => $newPrice,
+                'payment_type' => $paymentType,
+                'original_price' => $originalPrice
+            ]);
+            
+            // Directly modify the cart item to avoid rowId regeneration
+            $cartItem->price = $newPrice;
+            $cartItem->priceTax = $newPrice + $cartItem->tax;
+            
+            // Update options properly
+            $options = $cartItem->options->toArray();
+            $options['preorder_payment_type'] = $paymentType;
+            $options['original_price'] = $originalPrice;
+            $cartItem->options = new \Botble\Ecommerce\Cart\CartItemOptions($options);
+            
+            // Save the modified item back to cart session using proper method
+            $content = Cart::instance('cart')->content();
+            $content->put($rowId, $cartItem);
+            Cart::instance('cart')->putToSession($content);
+            
+            \Log::info('Cart item updated in session', [
+                'rowId' => $rowId,
+                'new_price' => $cartItem->price,
+                'payment_type' => $paymentType,
+                'options_set' => $cartItem->options->toArray()
+            ]);
+        }
+    }
+    
+    public function handlePreOrderPayments($products, $request, $token, $sessionData): void
+    {
+        // Update cart item prices based on selected payment types
+        $preorderPaymentTypes = $request->input('preorder_payment_type', []);
+        
+        if (!empty($preorderPaymentTypes)) {
+            $preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class);
+            
+            foreach ($preorderPaymentTypes as $rowId => $paymentType) {
+                $cartItem = Cart::instance('cart')->get($rowId);
+                if (!$cartItem) {
+                    continue;
+                }
+                
+                // Check if this is a preorder item
+                if (!isset($cartItem->options['extras']['preorder']['campaign_id'])) {
+                    continue;
+                }
+                
+                $product = \Botble\Ecommerce\Models\Product::find($cartItem->id);
+                if (!$product || !$product->is_preorder_enabled) {
+                    continue;
+                }
+                
+                $activePreOrder = $preOrderService->getActivePreOrderForProduct($product);
+                if (!$activePreOrder) {
+                    continue;
+                }
+                
+                // Calculate the new price based on payment type
+                $newPrice = $cartItem->price; // Default to current price
+                
+                if ($paymentType === \Botble\Ecommerce\Enums\PreOrderPaymentTypeEnum::DEPOSIT) {
+                    $newPrice = $activePreOrder->calculateDepositAmount($product, 1);
+                }
+                
+                \Log::info('Updating preorder cart item', [
+                    'rowId' => $rowId,
+                    'old_price' => $cartItem->price,
+                    'new_price' => $newPrice,
+                    'payment_type' => $paymentType
+                ]);
+                
+                // Directly modify the cart item properties
+                $cartItem->price = $newPrice;
+                $cartItem->priceTax = $newPrice + $cartItem->tax;
+                
+                // Store payment type in options
+                $options = $cartItem->options->toArray();
+                $options['preorder_payment_type'] = $paymentType;
+                $cartItem->options = new \Botble\Ecommerce\Cart\CartItemOptions($options);
+                
+                // Update the cart content directly in session
+                $content = Cart::instance('cart')->content();
+                $content->put($rowId, $cartItem);
+                Cart::instance('cart')->putToSession($content);
+            }
+        }
+    }
+    
 }

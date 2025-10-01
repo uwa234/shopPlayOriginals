@@ -22,6 +22,9 @@ class PublicUpdateCheckoutController extends BaseController
          * @var Collection $products
          */
         $products = Cart::instance('cart')->products();
+        
+        // Allow modification of cart before calculating checkout data
+        do_action('ecommerce_before_calculate_checkout_data', $request, $products);
 
         $checkoutOrderData = $handleCheckoutOrderData->execute(
             $request,

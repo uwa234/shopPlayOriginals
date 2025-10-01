@@ -1,0 +1,64 @@
+/* Preorder Payment Options Styling */
+.preorder-payment-option-wrapper {
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+.preorder-payment-option-wrapper h6 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.payment-type-selection .form-check {
+    padding: 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.payment-type-selection .form-check:hover {
+    border-color: #007bff;
+    background-color: #f8f9fa;
+}
+
+.payment-type-selection .form-check-input:checked + .form-check-label {
+    color: #007bff;
+}
+
+.payment-type-selection .form-check-input:checked ~ * {
+    color: #007bff;
+}
+
+.payment-type-selection .form-check input[type="radio"]:checked {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.payment-type-selection .form-check-label {
+    cursor: pointer;
+    width: 100%;
+    margin-left: 0.5rem;
+}
+
+.payment-type-selection .form-check-label strong {
+    font-size: 1rem;
+}
+
+.payment-type-selection .form-check-label small {
+    display: block;
+    margin-top: 4px;
+}
+
+.checkout-payment-title {
+    color: #333;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.preorder-payment-option-wrapper .alert-info {
+    background-color: #e7f3ff;
+    border-color: #b3d9ff;
+    color: #004085;
+} 

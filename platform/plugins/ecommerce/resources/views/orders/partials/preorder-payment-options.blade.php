@@ -115,7 +115,7 @@
                                     data-deposit-amount="{{ $data['deposit_amount'] }}"
                                     data-full-amount="{{ $data['full_amount'] }}"
                                     data-row-id="{{ $rowId }}"
-                                    @if($currentPaymentType === PreOrderPaymentTypeEnum::DEPOSIT || (!$currentPaymentType && $data['requires_deposit'])) checked @endif
+                                    @if($currentPaymentType === PreOrderPaymentTypeEnum::DEPOSIT) checked @endif
                                 >
                                 <label class="form-check-label" for="payment_deposit_{{ $rowId }}">
                                     <strong>{{ __('plugins/ecommerce::pre-orders.checkout.deposit_option') }}</strong>
@@ -139,7 +139,7 @@
                                     data-deposit-amount="{{ $data['deposit_amount'] }}"
                                     data-full-amount="{{ $data['full_amount'] }}"
                                     data-row-id="{{ $rowId }}"
-                                    @if($currentPaymentType === PreOrderPaymentTypeEnum::FULL_PAYMENT || (!$currentPaymentType && !$data['requires_deposit'])) checked @endif
+                                    @if($currentPaymentType === PreOrderPaymentTypeEnum::FULL_PAYMENT || !$currentPaymentType) checked @endif
                                 >
                                 <label class="form-check-label" for="payment_full_{{ $rowId }}">
                                     <strong>{{ __('plugins/ecommerce::pre-orders.checkout.full_payment_option') }}</strong>

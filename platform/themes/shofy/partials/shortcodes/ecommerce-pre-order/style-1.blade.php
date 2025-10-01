@@ -9,7 +9,7 @@
 >
     <div class="container">
         @if($preOrder && $preOrder->products->isNotEmpty())
-            <div class="row align-items-center mb-40">
+            <div class="row align-items-center mb-20">
                 <div class="col-xl-4 col-md-5 col-sm-6">
                     {!! Theme::partial('section-title', ['shortcode' => $shortcode, 'title' => $shortcode->title ?: $preOrder->name]) !!}
                 </div>
@@ -30,13 +30,30 @@
                     @endif
                 </div>
             </div>
+            <div class="row mb-30">
+                <div class="col-xl-12">
+                    <div class="tp-deal-countdown text-center">
+                        <div class="tp-product-countdown" data-countdown data-date="{{ $preOrder->expected_delivery_date }}">
+                            <div class="tp-product-countdown-inner">
+                                <ul>
+                                    <li><span data-days>0</span> {{ __('Days') }}</li>
+                                    <li><span data-hours>0</span> {{ __('Hrs') }}</li>
+                                    <li><span data-minutes>0</span> {{ __('Mins') }}</li>
+                                    <li><span data-seconds>0</span> {{ __('Secs') }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <p class="text-muted mt-2 mb-0">{{ __('Expected Delivery Date') }}</p>
+                    </div>
+                </div>
+            </div>
             <div class="row">
                 <div class="col-xl-12">
                     <div class="tp-product-offer-slider fix">
                         <div class="tp-product-offer-slider-active swiper-container">
                             <div class="swiper-wrapper">
                                 @foreach($preOrder->products as $product)
-                                    @include(Theme::getThemeNamespace('views.ecommerce.includes.product-item'), ['class' => 'tp-product-offer-item swiper-slide mb-0', 'withCountdown' => true, 'endDate' => $preOrder->expected_delivery_date, 'countdownLabel' => __('Expected Delivery:')])
+                                    @include(Theme::getThemeNamespace('views.ecommerce.includes.product-item'), ['class' => 'tp-product-offer-item swiper-slide mb-0'])
                                 @endforeach
                             </div>
                             <div class="tp-deals-slider-dot tp-swiper-dot text-center mt-40"></div>

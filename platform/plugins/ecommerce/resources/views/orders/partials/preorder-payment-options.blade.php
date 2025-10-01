@@ -159,12 +159,26 @@
         (function($) {
             $(document).ready(function() {
             console.log('Preorder payment options initialized');
+            console.log('Radio buttons found:', $('.preorder-payment-type-radio').length);
             
             // Handle payment type selection changes to update the total
             $('.preorder-payment-type-radio').on('change', function() {
-                console.log('Payment type changed');
+                console.log('=== Payment type changed ===');
                 var $radio = $(this);
+                var paymentType = $radio.val();
+                var rowId = $radio.data('row-id');
+                var depositAmount = $radio.data('deposit-amount');
+                var fullAmount = $radio.data('full-amount');
+                
+                console.log('Selected:', {
+                    paymentType: paymentType,
+                    rowId: rowId,
+                    depositAmount: depositAmount,
+                    fullAmount: fullAmount
+                });
+                
                 var $form = $radio.closest('form');
+                console.log('Form found:', $form.length > 0);
                 
                 if ($form.length) {
                     var updateUrl = $form.data('update-url');
@@ -173,9 +187,15 @@
                     
                     if (updateUrl) {
                         // Show loading state
-                        var $cartWrapper = $('.cart-item-wrapper');
+                        var $cartWrapper = $('.cart-item-wrapper, [data-bb-toggle="checkout-cart-price-area"]');
                         if ($cartWrapper.length) {
                             $cartWrapper.css('opacity', '0.5');
+                        }
+                        
+                        // Show loading message
+                        var $orderTotal = $('.checkout-payment-title, h5:contains("Order summary")').first();
+                        if ($orderTotal.length) {
+                            $orderTotal.append(' <span class="text-muted">(Updating...)</span>');
                         }
                         
                         // Trigger form update via AJAX
@@ -187,32 +207,100 @@
                                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                             },
                             success: function(response) {
-                                console.log('AJAX success:', response);
+                                console.log('=== AJAX Success ===');
+                                console.log('Response:', response);
+                                console.log('Response.data:', response.data);
+                                
                                 if (response.error === false || response.error === undefined) {
-                                    // Reload the page to show updated totals
-                                    console.log('Reloading page...');
-                                    location.reload();
-                                } else {
-                                    console.error('Response error:', response);
-                                    alert('Error: ' + (response.message || 'Unknown error'));
+                                    // The data is in response.data object
+                                    var responseData = response.data || response;
+                                    
+                                    console.log('Looking for cart price area...');
+                                    
+                                    // Try multiple selectors to find the cart totals area
+                                    var $cartPriceArea = $('[data-bb-toggle="checkout-cart-price-area"]');
+                                    console.log('Selector 1 [data-bb-toggle="checkout-cart-price-area"]:', $cartPriceArea.length);
+                                    
+                                    if ($cartPriceArea.length === 0) {
+                                        $cartPriceArea = $('.cart-item-wrapper');
+                                        console.log('Selector 2 .cart-item-wrapper:', $cartPriceArea.length);
+                                    }
+                                    
+                                    if ($cartPriceArea.length === 0) {
+                                        $cartPriceArea = $('.checkout-cart-price-area, .cart-totals, .order-summary, #checkout-cart-price-area');
+                                        console.log('Selector 3 (class/id based):', $cartPriceArea.length);
+                                    }
+                                    
+                                    if ($cartPriceArea.length === 0) {
+                                        $cartPriceArea = $('.col-lg-5.col-md-6, .checkout-col-right').find('.card, .box, [class*="total"]').first();
+                                        console.log('Selector 4 (parent-child):', $cartPriceArea.length);
+                                    }
+                                    
+                                    console.log('Final cart price area found:', $cartPriceArea.length);
+                                    
+                                    // Update the cart totals dynamically without page reload
+                                    if (responseData.amount) {
+                                        console.log('Updating cart totals HTML');
+                                        console.log('Amount HTML length:', responseData.amount.length);
+                                        
+                                        if ($cartPriceArea.length > 0) {
+                                            console.log('Updating element:', $cartPriceArea.get(0));
+                                            $cartPriceArea.html(responseData.amount);
+                                            console.log('Cart price area updated!');
+                                        } else {
+                                            console.warn('Cart price area element not found! Reloading page to show changes...');
+                                            setTimeout(function() {
+                                                location.reload();
+                                            }, 500);
+                                            return;
+                                        }
+                                    } else {
+                                        console.warn('No amount in response');
+                                    }
+                                    
+                                    // Update payment methods if needed
+                                    if (responseData.payment_methods) {
+                                        console.log('Updating payment methods HTML');
+                                        var $paymentArea = $('[data-bb-toggle="checkout-payment-methods-area"]');
+                                        console.log('Payment methods area found:', $paymentArea.length);
+                                        if ($paymentArea.length > 0) {
+                                            $paymentArea.html(responseData.payment_methods);
+                                        }
+                                    }
+                                    
+                                    // Restore opacity
                                     if ($cartWrapper.length) {
                                         $cartWrapper.css('opacity', '1');
                                     }
+                                    
+                                    console.log('Cart updated successfully');
+                                } else {
+                                    console.error('Response error:', response);
+                                    alert('Error: ' + (response.message || 'Unknown error'));
+                                    location.reload(); // Fallback to reload
                                 }
                             },
-                            error: function(xhr) {
-                                console.error('AJAX error:', xhr);
-                                alert('Error updating payment type. Please try again.');
-                                if ($cartWrapper.length) {
-                                    $cartWrapper.css('opacity', '1');
-                                }
+                            error: function(xhr, status, error) {
+                                console.error('=== AJAX Error ===');
+                                console.error('Status:', status);
+                                console.error('Error:', error);
+                                console.error('XHR:', xhr);
+                                alert('Error updating payment type. The page will reload.');
+                                location.reload(); // Fallback to reload on error
                             }
                         });
                     } else {
-                        console.warn('No update URL found');
+                        console.warn('No update URL found on form');
+                        console.log('Form attributes:', $form.prop('attributes'));
                     }
                 } else {
-                    console.warn('No form found');
+                    console.warn('No form found. Looking for form in page...');
+                    $form = $('form#checkout-form, form.checkout-form').first();
+                    console.log('Found form by ID/class:', $form.length > 0);
+                    if ($form.length) {
+                        // Retry with found form
+                        $radio.trigger('change');
+                    }
                 }
             });
             });

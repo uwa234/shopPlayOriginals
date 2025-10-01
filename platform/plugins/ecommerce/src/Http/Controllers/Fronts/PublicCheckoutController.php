@@ -810,6 +810,16 @@ class PublicCheckoutController extends BaseController
             Discount::getFacadeRoot()->afterOrderPlaced($appliedCouponCode);
         }
 
+        // Handle preorder payment type selections to update cart prices BEFORE creating order products
+        do_action('ecommerce_before_processing_payment', $products, $request, $token, $sessionData);
+
+        // Recalculate order totals after preorder prices are updated
+        $order->update([
+            'amount' => Cart::instance('cart')->rawTotal(),
+            'tax_amount' => Cart::instance('cart')->rawTax(),
+            'sub_total' => Cart::instance('cart')->rawSubTotal(),
+        ]);
+
         OrderProduct::query()->where(['order_id' => $order->getKey()])->delete();
 
         foreach (Cart::instance('cart')->content() as $cartItem) {
@@ -848,8 +858,6 @@ class PublicCheckoutController extends BaseController
         $request->merge([
             'order_id' => $order->getKey(),
         ]);
-
-        do_action('ecommerce_before_processing_payment', $products, $request, $token, $sessionData);
 
         if (! is_plugin_active('payment') || ! $orderAmount) {
             OrderHelper::processOrder($order->getKey());

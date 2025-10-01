@@ -339,6 +339,139 @@ app()->booted(function (): void {
             );
     });
 
+    // Pre-Order Shortcode
+    Shortcode::register('ecommerce-pre-order', __('Ecommerce Pre-Order'), __('Ecommerce Pre-Order'), function (ShortcodeCompiler $shortcode) {
+        $limit = (int) $shortcode->limit ?: 5;
+
+        // Get active pre-order campaigns
+        $preOrder = \Botble\Ecommerce\Models\PreOrder::query()
+            ->where('id', $shortcode->pre_order_id)
+            ->wherePublished()
+            ->where('expected_delivery_date', '>', now())
+            ->with([
+                'products' => function ($query) {
+                    $reviewParams = EcommerceHelper::withReviewsParams();
+
+                    if (EcommerceHelper::isReviewEnabled()) {
+                        $query->withAvg($reviewParams['withAvg'][0], $reviewParams['withAvg'][1]);
+                    }
+
+                    return $query
+                        ->where('ec_products.status', \Botble\Base\Enums\BaseStatusEnum::PUBLISHED)
+                        ->where('is_preorder_enabled', true)
+                        ->with(EcommerceHelper::withProductEagerLoadingRelations())
+                        ->withCount($reviewParams['withCount']);
+                },
+            ])
+            ->first();
+
+        if (! $preOrder || $preOrder->products->isEmpty()) {
+            return Theme::partial("shortcodes.ecommerce-pre-order.index", compact("shortcode", "preOrder"));
+        }
+
+        // Limit products after loading
+        $preOrder->setRelation("products", $preOrder->products->take($limit));
+
+        return Theme::partial("shortcodes.ecommerce-pre-order.index", compact("shortcode", "preOrder"));
+    });
+
+    Shortcode::setPreviewImage('ecommerce-pre-order', Theme::asset()->url('images/shortcodes/ecommerce-flash-sale/style-1.png'));
+
+    Shortcode::setAdminConfig('ecommerce-pre-order', function (array $attributes) {
+        // Get active pre-order campaigns
+        $preOrders = \Botble\Ecommerce\Models\PreOrder::query()
+            ->wherePublished()
+            ->where('expected_delivery_date', '>', now())
+            ->pluck('name', 'id')
+            ->all();
+
+        $styles = [];
+
+        foreach (range(1, 2) as $i) {
+            $styles[$i] = [
+                'label' => __('Style :number', ['number' => $i]),
+                'image' => Theme::asset()->url("images/shortcodes/ecommerce-flash-sale/style-$i.png"),
+            ];
+        }
+
+        $isStyle = fn (int $style) => Arr::get($attributes, 'style', 1) == $style;
+
+        return ShortcodeForm::createFromArray($attributes)
+            ->withLazyLoading()
+            ->columns()
+            ->add(
+                'style',
+                UiSelectorField::class,
+                UiSelectorFieldOption::make()
+                    ->colspan(2)
+                    ->choices($styles)
+                    ->selected(Arr::get($attributes, 'style', 1))
+                    ->collapsible('style')
+            )
+            ->add(
+                'title',
+                TextField::class,
+                TextFieldOption::make()
+                    ->label(__('Title'))
+            )
+            ->add(
+                'subtitle',
+                TextField::class,
+                TextFieldOption::make()
+                    ->label(__('Subtitle'))
+                    ->colspan(2)
+                    ->collapseTrigger('style', 2, $isStyle(2))
+            )
+            ->add(
+                'pre_order_id',
+                SelectField::class,
+                SelectFieldOption::make()
+                    ->label(__('Select a pre-order campaign'))
+                    ->choices($preOrders)
+                    ->colspan(2)
+            )
+            ->add(
+                'limit',
+                NumberField::class,
+                NumberFieldOption::make()
+                    ->label(__('Limit'))
+                    ->placeholder(__('Number of pre-order products to show'))
+                    ->defaultValue(3)
+                    ->colspan(2)
+                    ->collapseTrigger('style', 1, $isStyle(1))
+            )
+            ->add(
+                'button_label',
+                TextField::class,
+                TextFieldOption::make()
+                    ->label(__('Button label'))
+                    ->placeholder(__('Button view more label'))
+                    ->collapseTrigger('style', 1, $isStyle(1))
+            )
+            ->add(
+                'button_url',
+                TextField::class,
+                TextFieldOption::make()
+                    ->label(__('Button URL'))
+                    ->placeholder(__('Button view more URL'))
+                    ->helperText(__('Leave empty to link to the shop page'))
+                    ->collapseTrigger('style', 1, $isStyle(1))
+            )
+            ->add(
+                'background_color',
+                ColorField::class,
+                InputFieldOption::make()
+                    ->label(__('Background color'))
+                    ->defaultValue('#F3F3F3')
+            )
+            ->add(
+                'background_image',
+                MediaImageField::class,
+                MediaImageFieldOption::make()
+                    ->label(__('Background image'))
+            );
+    });
+
     Shortcode::register(
         'ecommerce-products',
         __('Ecommerce Products'),

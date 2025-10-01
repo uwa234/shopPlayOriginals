@@ -192,12 +192,6 @@
                             $cartWrapper.css('opacity', '0.5');
                         }
                         
-                        // Show loading message
-                        var $orderTotal = $('.checkout-payment-title, h5:contains("Order summary")').first();
-                        if ($orderTotal.length) {
-                            $orderTotal.append(' <span class="text-muted">(Updating...)</span>');
-                        }
-                        
                         // Trigger form update via AJAX
                         $.ajax({
                             url: updateUrl,

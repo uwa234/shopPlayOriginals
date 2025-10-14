@@ -108,6 +108,8 @@ class MarketplaceServiceProvider extends ServiceProvider
             ]);
         }
 
+        // Marketplace menu disabled - commented out to hide from admin dashboard
+        /*
         DashboardMenu::beforeRetrieving(function (): void {
             DashboardMenu::make()
                 ->registerItem([
@@ -180,6 +182,7 @@ class MarketplaceServiceProvider extends ServiceProvider
                     'permissions' => ['marketplace.messages.index'],
                 ]);
         });
+        */
 
         DashboardMenu::for('vendor')->beforeRetrieving(function (): void {
             DashboardMenu::make()

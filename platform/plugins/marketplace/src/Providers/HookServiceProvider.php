@@ -290,7 +290,8 @@ class HookServiceProvider extends ServiceProvider
             }, 999, 2);
         });
 
-        if (is_plugin_active('marketplace') && MarketplaceHelper::isVendorRegistrationEnabled() && MarketplaceHelper::getSetting('show_vendor_registration_form_at_registration_page', true)) {
+        // Disable vendor option on customer registration page
+        if (false && is_plugin_active('marketplace') && MarketplaceHelper::isVendorRegistrationEnabled() && MarketplaceHelper::getSetting('show_vendor_registration_form_at_registration_page', true)) {
             RegisterForm::extend(function (RegisterForm $form): void {
                 Theme::asset()
                     ->container('footer')

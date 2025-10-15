@@ -48,7 +48,7 @@ class PreOrderPaymentService
             'total_amount' => $totalAmount,
             'payment_type' => $paymentType,
             'paid_amount' => 0, // Will be updated after successful payment
-            'remaining_amount' => $paidAmount, // Amount that needs to be paid
+            'remaining_amount' => $remainingAmount, // Total minus deposit
             'payment_status' => 'pending',
             'payment_due_date' => $preOrder->pre_order_end_date,
         ]);

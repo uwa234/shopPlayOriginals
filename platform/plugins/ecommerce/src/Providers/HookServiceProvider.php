@@ -196,10 +196,401 @@ class HookServiceProvider extends ServiceProvider
             
             // Handle preorder payment type changes during AJAX checkout updates
             add_action('ecommerce_before_calculate_checkout_data', [$this, 'handlePreOrderPaymentTypeUpdate'], 10, 2);
+            
+            // Create PreOrderPayment records after order products are created
+            add_action('ecommerce_after_each_order_product_created', [$this, 'createPreOrderPaymentRecord'], 10, 1);
 
             add_filter('cms_unauthenticated_redirect_to', function ($redirectCallback, $request) {
                 return $request->expectsJson() ? null : route('customer.login');
             }, 15, 2);
+
+            // Admin order detail: show preorder info (type + remaining balance)
+            add_filter('ecommerce_order_detail_top', function ($html, $order) {
+                try {
+                    if (! $order) {
+                        return $html;
+                    }
+
+                    $orderProducts = \Botble\Ecommerce\Models\OrderProduct::query()
+                        ->where('order_id', $order->getKey())
+                        ->get();
+
+                    $productIds = $orderProducts->pluck('product_id')->filter()->unique()->values();
+                    if ($productIds->isEmpty()) {
+                        return $html;
+                    }
+
+                    $isPreOrder = \Botble\Ecommerce\Models\Product::query()
+                        ->whereIn('id', $productIds)
+                        ->where('is_preorder_enabled', true)
+                        ->exists();
+
+                    if (! $isPreOrder) {
+                        return $html;
+                    }
+
+                    $paymentsQuery = \Botble\Ecommerce\Models\PreOrderPayment::query()
+                        ->whereIn('product_id', $productIds)
+                        ->when($order->user_id, fn($q) => $q->where('customer_id', $order->user_id))
+                        ->when(! $order->user_id, function ($q) use ($order) {
+                            $email = optional($order->user)->email ?: optional($order->address)->email;
+                            if ($email) {
+                                $q->where('customer_email', $email);
+                            }
+                        })
+                        ->oldest('id');
+
+                    $payment = $paymentsQuery->first();
+                    $typeLabel = null;
+                    $balanceHtml = null;
+
+                    if ($payment) {
+                        $typeValue = method_exists($payment->payment_type, 'value') ? $payment->payment_type->value : (string) $payment->payment_type;
+                        $typeLabel = $typeValue === 'deposit' ? 'Deposit' : 'Full payment';
+                        $balanceHtml = $typeValue === 'deposit' ? e(format_price($payment->remaining_amount)) : e(format_price(0));
+                    }
+
+                    // Fallback: derive from order product options if no payment record
+                    if (! $payment) {
+                        foreach ($orderProducts as $op) {
+                            $options = (array) ($op->options ?? []);
+                            $chosenType = $options['preorder_payment_type']
+                                ?? ($options['extras']['preorder']['payment_type'] ?? null);
+                            if (! $chosenType) {
+                                continue;
+                            }
+                            $product = \Botble\Ecommerce\Models\Product::find($op->product_id);
+                            if (! $product || ! $product->is_preorder_enabled) {
+                                continue;
+                            }
+                            $preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class);
+                            $activePreOrder = $preOrderService->getActivePreOrderForProduct($product);
+                            if (! $activePreOrder) {
+                                continue;
+                            }
+                            $typeLabel = (string) $chosenType === 'deposit' ? 'Deposit' : 'Full payment';
+                            if ((string) $chosenType === 'deposit') {
+                                $deposit = $activePreOrder->calculateDepositAmount($product, (int) ($op->qty ?? 1));
+                                $unitPrice = $activePreOrder->products()->where('product_id', $product->id)->first()?->pivot?->price ?? $product->price;
+                                $total = $unitPrice * (int) ($op->qty ?? 1);
+                                $balanceHtml = e(format_price(max($total - $deposit, 0)));
+                            } else {
+                                $balanceHtml = e(format_price(0));
+                            }
+                            break;
+                        }
+                    }
+
+                    if ($typeLabel === null || $balanceHtml === null) {
+                        return $html; // nothing to show
+                    }
+
+                    $card = '<div class="row row-cards"><div class="col-12"><div class="card mb-3">'
+                        . '<div class="card-body d-flex justify-content-between align-items-center">'
+                        . '<div><span class="badge bg-info me-2">Pre-order</span>'
+                        . '<strong>Type:</strong> ' . e($typeLabel) . '</div>'
+                        . '<div><strong>Balance remaining:</strong> ' . $balanceHtml . '</div>'
+                        . '</div></div></div></div>';
+
+                    return $card . (string) $html;
+                } catch (\Throwable $e) {
+                    return $html;
+                }
+            }, 120, 2);
+
+            // Also render the same info at the bottom to ensure visibility on edit page
+            add_filter('ecommerce_order_detail_bottom', function ($html, $order) {
+                try {
+                    if (! $order) {
+                        return $html;
+                    }
+
+                    $orderProducts = \Botble\Ecommerce\Models\OrderProduct::query()
+                        ->where('order_id', $order->getKey())
+                        ->get();
+
+                    $productIds = $orderProducts->pluck('product_id')->filter()->unique()->values();
+                    if ($productIds->isEmpty()) {
+                        return $html;
+                    }
+
+                    $isPreOrder = \Botble\Ecommerce\Models\Product::query()
+                        ->whereIn('id', $productIds)
+                        ->where('is_preorder_enabled', true)
+                        ->exists();
+
+                    if (! $isPreOrder) {
+                        return $html;
+                    }
+
+                    // Try to resolve customer email from multiple places
+                    $resolvedEmail = optional($order->user)->email
+                        ?: optional($order->address)->email
+                        ?: (string) data_get($order, 'address.email');
+
+                    $paymentsQuery = \Botble\Ecommerce\Models\PreOrderPayment::query()
+                        ->whereIn('product_id', $productIds)
+                        ->when($order->user_id, fn($q) => $q->where('customer_id', $order->user_id))
+                        ->when(! $order->user_id && $resolvedEmail, fn($q) => $q->where('customer_email', $resolvedEmail))
+                        ->oldest('id');
+
+                    $payment = $paymentsQuery->first();
+                    $typeLabel = null;
+                    $balanceHtml = null;
+
+                    if ($payment) {
+                        $typeValue = method_exists($payment->payment_type, 'value') ? $payment->payment_type->value : (string) $payment->payment_type;
+                        $typeLabel = $typeValue === 'deposit' ? 'Deposit' : 'Full payment';
+                        $balanceHtml = $typeValue === 'deposit' ? e(format_price($payment->remaining_amount)) : e(format_price(0));
+                    }
+
+                    // Fallback from order product options
+                    if (! $payment) {
+                        foreach ($orderProducts as $op) {
+                            $options = (array) ($op->options ?? []);
+                            $chosenType = $options['preorder_payment_type']
+                                ?? ($options['extras']['preorder']['payment_type'] ?? null);
+                            if (! $chosenType) {
+                                continue;
+                            }
+                            $product = \Botble\Ecommerce\Models\Product::find($op->product_id);
+                            if (! $product || ! $product->is_preorder_enabled) {
+                                continue;
+                            }
+                            $preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class);
+                            $activePreOrder = $preOrderService->getActivePreOrderForProduct($product);
+                            if (! $activePreOrder) {
+                                continue;
+                            }
+                            $typeLabel = (string) $chosenType === 'deposit' ? 'Deposit' : 'Full payment';
+                            if ((string) $chosenType === 'deposit') {
+                                $deposit = $activePreOrder->calculateDepositAmount($product, (int) ($op->qty ?? 1));
+                                $unitPrice = $activePreOrder->products()->where('product_id', $product->id)->first()?->pivot?->price ?? $product->price;
+                                $total = $unitPrice * (int) ($op->qty ?? 1);
+                                $balanceHtml = e(format_price(max($total - $deposit, 0)));
+                            } else {
+                                $balanceHtml = e(format_price(0));
+                            }
+                            break;
+                        }
+                    }
+
+                    if ($typeLabel === null || $balanceHtml === null) {
+                        return $html;
+                    }
+
+                    $card = '<div class="row row-cards mt-3"><div class="col-12"><div class="card">'
+                        . '<div class="card-body d-flex justify-content-between align-items-center">'
+                        . '<div><span class="badge bg-info me-2">Pre-order</span>'
+                        . '<strong>Type:</strong> ' . e($typeLabel) . '</div>'
+                        . '<div><strong>Balance remaining:</strong> ' . $balanceHtml . '</div>'
+                        . '</div></div></div></div>';
+
+                    return (string) $html . $card;
+                } catch (\Throwable $e) {
+                    return $html;
+                }
+            }, 120, 2);
+
+            // Add pre-order columns and data to Orders table without modifying the core table class
+            add_filter(BASE_FILTER_TABLE_HEADINGS, function (array $headings, $model, $table) {
+                if ($table instanceof \Botble\Ecommerce\Tables\OrderTable) {
+                    $headings = array_merge($headings, [
+                        \Botble\Table\Columns\Column::make('preorder_info')
+                            ->name('preorder_info')
+                            ->title('Pre-order')
+                            ->alignStart(),
+                        \Botble\Table\Columns\Column::make('preorder_balance')
+                            ->name('preorder_balance')
+                            ->title('Pre-order Balance')
+                            ->alignStart(),
+                    ]);
+                }
+
+                return $headings;
+            }, 160, 3);
+
+            add_filter(BASE_FILTER_GET_LIST_DATA, function ($data, $model, $table) {
+                if (! ($table instanceof \Botble\Ecommerce\Tables\OrderTable)) {
+                    return $data;
+                }
+
+                // Case 1: EloquentDataTable (pre-JSON). Add virtual columns via DataTables API
+                if ($data instanceof \Botble\Table\EloquentDataTable) {
+                    return $data
+                        ->addColumn('preorder_info', function ($row) {
+                            try {
+                                $orderId = is_object($row) && isset($row->id) ? $row->id : (is_array($row) ? ($row['id'] ?? null) : null);
+                                if (! $orderId) {
+                                    return '&mdash;';
+                                }
+
+                                $order = \Botble\Ecommerce\Models\Order::query()->find($orderId);
+                                if (! $order) {
+                                    return '&mdash;';
+                                }
+
+                                $productIds = \Botble\Ecommerce\Models\OrderProduct::query()
+                                    ->where('order_id', $orderId)
+                                    ->pluck('product_id')
+                                    ->filter()
+                                    ->unique()
+                                    ->values();
+
+                                if ($productIds->isEmpty()) {
+                                    return '&mdash;';
+                                }
+
+                                $isPreOrder = \Botble\Ecommerce\Models\Product::query()
+                                    ->whereIn('id', $productIds)
+                                    ->where('is_preorder_enabled', true)
+                                    ->exists();
+
+                                if (! $isPreOrder) {
+                                    return '&mdash;';
+                                }
+
+                                $paymentsQuery = \Botble\Ecommerce\Models\PreOrderPayment::query()
+                                    ->whereIn('product_id', $productIds)
+                                    ->when($order->user_id, fn($q) => $q->where('customer_id', $order->user_id))
+                                    ->when(! $order->user_id, function ($q) use ($order) {
+                                        $email = optional($order->user)->email ?: optional($order->address)->email;
+                                        if ($email) {
+                                            $q->where('customer_email', $email);
+                                        }
+                                    })
+                                    ->oldest('id');
+
+                                $payment = $paymentsQuery->first();
+                                if (! $payment) {
+                                    return '<span class="badge bg-warning">Pre-order</span>';
+                                }
+
+                                $typeValue = method_exists($payment->payment_type, 'value') ? $payment->payment_type->value : (string) $payment->payment_type;
+                                $typeLabel = $typeValue === 'deposit' ? 'Deposit' : 'Full payment';
+                                return '<span class="badge bg-info">Pre-order: ' . e($typeLabel) . '</span>';
+                            } catch (\Throwable $e) {
+                                return '&mdash;';
+                            }
+                        })
+                        ->addColumn('preorder_balance', function ($row) {
+                            try {
+                                $orderId = is_object($row) && isset($row->id) ? $row->id : (is_array($row) ? ($row['id'] ?? null) : null);
+                                if (! $orderId) {
+                                    return '&mdash;';
+                                }
+
+                                $order = \Botble\Ecommerce\Models\Order::query()->find($orderId);
+                                if (! $order) {
+                                    return '&mdash;';
+                                }
+
+                                $productIds = \Botble\Ecommerce\Models\OrderProduct::query()
+                                    ->where('order_id', $orderId)
+                                    ->pluck('product_id')
+                                    ->filter()
+                                    ->unique()
+                                    ->values();
+
+                                if ($productIds->isEmpty()) {
+                                    return '&mdash;';
+                                }
+
+                                $paymentsQuery = \Botble\Ecommerce\Models\PreOrderPayment::query()
+                                    ->whereIn('product_id', $productIds)
+                                    ->when($order->user_id, fn($q) => $q->where('customer_id', $order->user_id))
+                                    ->when(! $order->user_id, function ($q) use ($order) {
+                                        $email = optional($order->user)->email ?: optional($order->address)->email;
+                                        if ($email) {
+                                            $q->where('customer_email', $email);
+                                        }
+                                    })
+                                    ->oldest('id');
+
+                                $payment = $paymentsQuery->first();
+                                if (! $payment) {
+                                    return '&mdash;';
+                                }
+
+                                $typeValue = method_exists($payment->payment_type, 'value') ? $payment->payment_type->value : (string) $payment->payment_type;
+                                return $typeValue === 'deposit' ? e(format_price($payment->remaining_amount)) : e(format_price(0));
+                            } catch (\Throwable $e) {
+                                return '&mdash;';
+                            }
+                        });
+                }
+
+                foreach ($data as &$row) {
+                    try {
+                        if (! is_array($row)) {
+                            continue;
+                        }
+
+                        // Defaults to keep table stable even if logic below fails
+                        $row['preorder_info'] = $row['preorder_info'] ?? '&mdash;';
+                        $row['preorder_balance'] = $row['preorder_balance'] ?? '&mdash;';
+
+                        $orderId = $row['id'] ?? null;
+                        if (! $orderId) {
+                            continue;
+                        }
+
+                        /** @var \Botble\Ecommerce\Models\Order|null $order */
+                        $order = \Botble\Ecommerce\Models\Order::query()->find($orderId);
+                        if (! $order) {
+                            continue;
+                        }
+
+                        $orderProducts = \Botble\Ecommerce\Models\OrderProduct::query()
+                            ->where('order_id', $orderId)
+                            ->get();
+
+                        $productIds = $orderProducts->pluck('product_id')->filter()->unique()->values();
+                        if ($productIds->isEmpty()) {
+                            continue;
+                        }
+
+                        $isPreOrder = \Botble\Ecommerce\Models\Product::query()
+                            ->whereIn('id', $productIds)
+                            ->where('is_preorder_enabled', true)
+                            ->exists();
+
+                        if (! $isPreOrder) {
+                            continue;
+                        }
+
+                        $paymentsQuery = \Botble\Ecommerce\Models\PreOrderPayment::query()
+                            ->whereIn('product_id', $productIds)
+                            ->when($order->user_id, fn($q) => $q->where('customer_id', $order->user_id))
+                            ->when(! $order->user_id, function ($q) use ($order) {
+                                $email = optional($order->user)->email ?: optional($order->address)->email;
+                                if ($email) {
+                                    $q->where('customer_email', $email);
+                                }
+                            })
+                            ->oldest('id');
+
+                        $payment = $paymentsQuery->first();
+
+                        if (! $payment) {
+                            $row['preorder_info'] = '<span class="badge bg-warning">Pre-order</span>';
+                            $row['preorder_balance'] = '&mdash;';
+                            continue;
+                        }
+
+                        $typeValue = method_exists($payment->payment_type, 'value') ? $payment->payment_type->value : (string) $payment->payment_type;
+                        $typeLabel = $typeValue === 'deposit' ? 'Deposit' : 'Full payment';
+                        $row['preorder_info'] = '<span class="badge bg-info">Pre-order: ' . e($typeLabel) . '</span>';
+                        $row['preorder_balance'] = $typeValue === 'deposit'
+                            ? e(format_price($payment->remaining_amount))
+                            : e(format_price(0));
+                    } catch (\Throwable $e) {
+                        // keep defaults on error
+                    }
+                }
+
+                return $data;
+            }, 160, 3);
         });
 
         $this->app['events']->listen(RenderingDashboardWidgets::class, function (): void {
@@ -284,6 +675,49 @@ class HookServiceProvider extends ServiceProvider
                     ->setColumn('col-12 col-md-6 col-lg-3')
                     ->init($widgets, $widgetSettings);
             }, 5, 2);
+
+            // Pre-order widgets: deposits collected and outstanding balances
+            add_filter(DASHBOARD_FILTER_ADMIN_LIST, function ($widgets, $widgetSettings) {
+                $totalDeposits = \Botble\Ecommerce\Models\PreOrderPayment::query()
+                    ->where('payment_status', 'paid')
+                    ->where('payment_type', \Botble\Ecommerce\Enums\PreOrderPaymentTypeEnum::DEPOSIT)
+                    ->sum('paid_amount');
+
+                return (new DashboardWidgetInstance())
+                    ->setType('stats')
+                    ->setPermission('pre-orders.index')
+                    ->setTitle('Pre-order Deposits')
+                    ->setKey('widget_preorder_deposits_total')
+                    ->setIcon('ti ti-cash')
+                    ->setColor('#f59e0b')
+                    ->setStatsTotal(function () use ($totalDeposits) {
+                        return format_price($totalDeposits);
+                    })
+                    ->setRoute(route('pre-orders.index'))
+                    ->setColumn('col-12 col-md-6 col-lg-3')
+                    ->init($widgets, $widgetSettings);
+            }, 6, 2);
+
+            add_filter(DASHBOARD_FILTER_ADMIN_LIST, function ($widgets, $widgetSettings) {
+                $outstanding = \Botble\Ecommerce\Models\PreOrderPayment::query()
+                    ->where('payment_status', 'paid')
+                    ->where('payment_type', \Botble\Ecommerce\Enums\PreOrderPaymentTypeEnum::DEPOSIT)
+                    ->sum('remaining_amount');
+
+                return (new DashboardWidgetInstance())
+                    ->setType('stats')
+                    ->setPermission('pre-orders.index')
+                    ->setTitle('Pre-order Balances')
+                    ->setKey('widget_preorder_outstanding_total')
+                    ->setIcon('ti ti-credit-card')
+                    ->setColor('#ef4444')
+                    ->setStatsTotal(function () use ($outstanding) {
+                        return format_price($outstanding);
+                    })
+                    ->setRoute(route('pre-orders.index'))
+                    ->setColumn('col-12 col-md-6 col-lg-3')
+                    ->init($widgets, $widgetSettings);
+            }, 7, 2);
         });
 
         if (defined('PAYMENT_ACTION_PAYMENT_PROCESSED')) {
@@ -1522,5 +1956,89 @@ class HookServiceProvider extends ServiceProvider
             }
         }
     }
-    
+
+    /**
+     * Create a PreOrderPayment record for a preorder item right after the order product is created.
+     */
+    public function createPreOrderPaymentRecord($orderProduct): void
+    {
+        try {
+            if (! $orderProduct || ! isset($orderProduct->product_id)) {
+                return;
+            }
+
+            /** @var \Botble\Ecommerce\Models\Product|null $product */
+            $product = \Botble\Ecommerce\Models\Product::query()->find($orderProduct->product_id);
+            if (! $product || ! $product->is_preorder_enabled) {
+                return;
+            }
+
+            // Extract payment type from saved options
+            $options = (array) ($orderProduct->options ?? []);
+            $paymentTypeValue = $options['preorder_payment_type']
+                ?? ($options['extras']['preorder']['payment_type'] ?? null);
+
+            if (! $paymentTypeValue) {
+                // Default: if preorder requires deposit, assume deposit; else full payment
+                $paymentTypeValue = \Botble\Ecommerce\Enums\PreOrderPaymentTypeEnum::DEPOSIT->value;
+            }
+
+            /** @var \Botble\Ecommerce\Enums\PreOrderPaymentTypeEnum $paymentType */
+            $paymentType = $paymentTypeValue instanceof \Botble\Ecommerce\Enums\PreOrderPaymentTypeEnum
+                ? $paymentTypeValue
+                : \Botble\Ecommerce\Enums\PreOrderPaymentTypeEnum::tryFrom((string) $paymentTypeValue);
+
+            if (! $paymentType) {
+                return;
+            }
+
+            // Get active preorder campaign for this product
+            $preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class);
+            $activePreOrder = $preOrderService->getActivePreOrderForProduct($product);
+            if (! $activePreOrder) {
+                return;
+            }
+
+            // Resolve customer info from order
+            /** @var \Botble\Ecommerce\Models\Order|null $order */
+            $order = \Botble\Ecommerce\Models\Order::query()->find($orderProduct->order_id);
+            if (! $order) {
+                return;
+            }
+
+            $customer = $order->user_id ? \Botble\Ecommerce\Models\Customer::find($order->user_id) : null;
+            $customerEmail = optional($order->user)->email ?: optional($order->address)->email;
+            $customerName = optional($order->user)->name ?: optional($order->address)->name;
+
+            // Prevent duplicate records for same product & customer & preorder
+            $existing = \Botble\Ecommerce\Models\PreOrderPayment::query()
+                ->where('pre_order_id', $activePreOrder->getKey())
+                ->where('product_id', $product->getKey())
+                ->when($customer?->id, fn($q) => $q->where('customer_id', $customer->id))
+                ->when(! $customer?->id && $customerEmail, fn($q) => $q->where('customer_email', $customerEmail))
+                ->first();
+
+            if ($existing) {
+                return;
+            }
+
+            // Create the PreOrderPayment record
+            $preOrderPaymentService = app(\Botble\Ecommerce\Services\PreOrderPaymentService::class);
+            $preOrderPaymentService->createPreOrderPayment(
+                $activePreOrder,
+                $product,
+                (int) ($orderProduct->qty ?? 1),
+                $paymentType,
+                $customer,
+                $customerEmail,
+                $customerName
+            );
+        } catch (\Throwable $e) {
+            \Log::error('Failed to create PreOrderPayment record', [
+                'error' => $e->getMessage(),
+                'order_product_id' => $orderProduct->id ?? null,
+            ]);
+        }
+    }
+
 }

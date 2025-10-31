@@ -96,6 +96,8 @@ class HookServiceProvider extends ServiceProvider
         });
 
         $this->app['events']->listen(RenderingDashboardWidgets::class, function (): void {
+            // Add assets to tweak widget font sizes - force reload with timestamp
+            Assets::addStylesDirectly('vendor/core/plugins/ecommerce/css/preorder-widgets.css?v=' . time());
             add_filter(DASHBOARD_FILTER_ADMIN_LIST, [$this, 'registerDashboardWidgets'], 208, 2);
         });
 
@@ -679,9 +681,47 @@ class HookServiceProvider extends ServiceProvider
             // Pre-order widgets: deposits collected and outstanding balances
             add_filter(DASHBOARD_FILTER_ADMIN_LIST, function ($widgets, $widgetSettings) {
                 $totalDeposits = \Botble\Ecommerce\Models\PreOrderPayment::query()
-                    ->where('payment_status', 'paid')
                     ->where('payment_type', \Botble\Ecommerce\Enums\PreOrderPaymentTypeEnum::DEPOSIT)
+                    ->whereIn('payment_status', ['paid', 'pending'])
                     ->sum('paid_amount');
+
+                // Fallback: derive from recent pre-order orders if no records yet
+                if (! $totalDeposits) {
+                    try {
+                        $recentOrderProducts = \Botble\Ecommerce\Models\OrderProduct::query()
+                            ->whereHas('product', function ($q) {
+                                $q->where('is_preorder_enabled', true);
+                            })
+                            ->whereHas('order')
+                            ->latest('id')
+                            ->limit(500)
+                            ->get();
+
+                        $preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class);
+                        $sum = 0;
+                        foreach ($recentOrderProducts as $op) {
+                            $options = (array) ($op->options ?? []);
+                            $chosen = $options['preorder_payment_type']
+                                ?? ($options['extras']['preorder']['payment_type'] ?? null);
+                            if ((string) $chosen !== 'deposit') {
+                                continue;
+                            }
+                            $product = $op->product;
+                            if (! $product || ! $product->is_preorder_enabled) {
+                                continue;
+                            }
+                            $active = $preOrderService->getActivePreOrderForProduct($product);
+                            if (! $active) {
+                                continue;
+                            }
+                            $deposit = $active->calculateDepositAmount($product, (int) ($op->qty ?? 1));
+                            $sum += (float) $deposit;
+                        }
+                        $totalDeposits = $sum;
+                    } catch (\Throwable $e) {
+                        // ignore fallback errors
+                    }
+                }
 
                 return (new DashboardWidgetInstance())
                     ->setType('stats')
@@ -700,9 +740,49 @@ class HookServiceProvider extends ServiceProvider
 
             add_filter(DASHBOARD_FILTER_ADMIN_LIST, function ($widgets, $widgetSettings) {
                 $outstanding = \Botble\Ecommerce\Models\PreOrderPayment::query()
-                    ->where('payment_status', 'paid')
                     ->where('payment_type', \Botble\Ecommerce\Enums\PreOrderPaymentTypeEnum::DEPOSIT)
+                    ->whereIn('payment_status', ['paid', 'pending'])
                     ->sum('remaining_amount');
+
+                if (! $outstanding) {
+                    try {
+                        $recentOrderProducts = \Botble\Ecommerce\Models\OrderProduct::query()
+                            ->whereHas('product', function ($q) {
+                                $q->where('is_preorder_enabled', true);
+                            })
+                            ->whereHas('order')
+                            ->latest('id')
+                            ->limit(500)
+                            ->get();
+
+                        $preOrderService = app(\Botble\Ecommerce\Services\PreOrderService::class);
+                        $sum = 0;
+                        foreach ($recentOrderProducts as $op) {
+                            $options = (array) ($op->options ?? []);
+                            $chosen = $options['preorder_payment_type']
+                                ?? ($options['extras']['preorder']['payment_type'] ?? null);
+                            if ((string) $chosen !== 'deposit') {
+                                continue;
+                            }
+                            $product = $op->product;
+                            if (! $product || ! $product->is_preorder_enabled) {
+                                continue;
+                            }
+                            $active = $preOrderService->getActivePreOrderForProduct($product);
+                            if (! $active) {
+                                continue;
+                            }
+                            $unitPrice = $active->products()->where('product_id', $product->id)->first()?->pivot?->price ?? $product->price;
+                            $qty = (int) ($op->qty ?? 1);
+                            $total = (float) $unitPrice * $qty;
+                            $deposit = (float) $active->calculateDepositAmount($product, $qty);
+                            $sum += max($total - $deposit, 0);
+                        }
+                        $outstanding = $sum;
+                    } catch (\Throwable $e) {
+                        // ignore fallback errors
+                    }
+                }
 
                 return (new DashboardWidgetInstance())
                     ->setType('stats')

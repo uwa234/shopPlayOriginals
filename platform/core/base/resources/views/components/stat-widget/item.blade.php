@@ -18,9 +18,9 @@
     Assets::addScripts(['counterup']);
 @endphp
 
-<div @class(['col dashboard-widget-item', $column])>
+<div @class(['col dashboard-widget-item', $column]) {{ $attributes->only('data-widget-key') }}>
     <{{ $tag }}
-        {{ $attributes->merge([
+        {{ $attributes->except('data-widget-key')->merge([
             'class' => $classes,
             'href' => $url,
         ]) }}

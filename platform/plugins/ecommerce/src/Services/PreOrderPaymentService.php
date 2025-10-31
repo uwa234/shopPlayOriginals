@@ -72,13 +72,20 @@ class PreOrderPaymentService
         ?array $paymentData = null
     ): bool {
         try {
+            // For deposits, the paid amount should be the deposit (total - remaining)
+            $calculatedPaid = $payment->payment_type === PreOrderPaymentTypeEnum::DEPOSIT
+                ? ($payment->total_amount - $payment->remaining_amount)
+                : $payment->total_amount;
+
+            $newRemaining = max($payment->total_amount - $calculatedPaid, 0);
+
             $payment->update([
                 'payment_method' => $paymentMethod,
                 'payment_reference' => $paymentReference,
                 'payment_data' => $paymentData,
                 'payment_status' => 'paid',
-                'paid_amount' => $payment->remaining_amount,
-                'remaining_amount' => $payment->total_amount - $payment->remaining_amount,
+                'paid_amount' => $calculatedPaid,
+                'remaining_amount' => $newRemaining,
             ]);
 
             return true;

@@ -6,5 +6,6 @@
         :icon="$widget->icon"
         :color="$widget->color"
         :column="$widget->column"
+        :data-widget-key="$widget->name ?? ''"
     />
 @endif

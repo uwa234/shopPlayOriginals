@@ -1,0 +1,43 @@
+/* Tweak font size for custom pre-order dashboard widgets */
+
+/* Make the pre-order cards wider to accommodate large numbers */
+.dashboard-widget-item[data-widget-key="widget_preorder_deposits_total"],
+.dashboard-widget-item[data-widget-key="widget_preorder_outstanding_total"] {
+  flex: 0 0 100% !important;
+  max-width: 100% !important;
+}
+
+@media (min-width: 768px) {
+  .dashboard-widget-item[data-widget-key="widget_preorder_deposits_total"],
+  .dashboard-widget-item[data-widget-key="widget_preorder_outstanding_total"] {
+    flex: 0 0 50% !important;
+    max-width: 50% !important;
+  }
+}
+
+@media (min-width: 1200px) {
+  .dashboard-widget-item[data-widget-key="widget_preorder_deposits_total"],
+  .dashboard-widget-item[data-widget-key="widget_preorder_outstanding_total"] {
+    flex: 0 0 33.333333% !important;
+    max-width: 33.333333% !important;
+  }
+}
+
+@media (min-width: 1600px) {
+  .dashboard-widget-item[data-widget-key="widget_preorder_deposits_total"],
+  .dashboard-widget-item[data-widget-key="widget_preorder_outstanding_total"] {
+    flex: 0 0 25% !important;
+    max-width: 25% !important;
+  }
+}
+
+/* CRITICAL: Override the base 52px font-size for .dashboard-widget-item .details .number - MUST be last */
+.dashboard-widget-item[data-widget-key="widget_preorder_deposits_total"] .details .number,
+.dashboard-widget-item[data-widget-key="widget_preorder_outstanding_total"] .details .number {
+  font-size: 20px !important;
+  line-height: 24px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-height: 30px !important;
+}

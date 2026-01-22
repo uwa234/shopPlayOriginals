@@ -2103,7 +2103,25 @@ class HookServiceProvider extends ServiceProvider
             }
 
             // Create the PreOrderPayment record
+            // For deposits: order product price = deposit paid, but we need full product price for total_amount
+            // For full payment: order product price = full price = total_amount
             $preOrderPaymentService = app(\Botble\Ecommerce\Services\PreOrderPaymentService::class);
+            $orderProductPrice = isset($orderProduct->price) ? (float) $orderProduct->price : null;
+            $originalPrice = $options['original_price'] ?? null;
+            
+            // If deposit payment, use original/full price for total_amount calculation, not the deposit amount
+            $fullProductPrice = null;
+            if ($paymentType === \Botble\Ecommerce\Enums\PreOrderPaymentTypeEnum::DEPOSIT) {
+                // For deposits, get the full product price (not the deposit amount)
+                // Use original_price from options if available, otherwise use pre-order pivot price or product's front_sale_price
+                $pivotPrice = $activePreOrder->products()->where('product_id', $product->id)->first()?->pivot?->price;
+                $fullProductPrice = $originalPrice 
+                    ?? ($pivotPrice && $pivotPrice > 0 ? $pivotPrice : ($product->front_sale_price ?? $product->price));
+            } else {
+                // For full payment, order product price is the full price
+                $fullProductPrice = $orderProductPrice;
+            }
+            
             $preOrderPaymentService->createPreOrderPayment(
                 $activePreOrder,
                 $product,
@@ -2111,7 +2129,9 @@ class HookServiceProvider extends ServiceProvider
                 $paymentType,
                 $customer,
                 $customerEmail,
-                $customerName
+                $customerName,
+                $fullProductPrice, // Use full product price for total_amount
+                $orderProductPrice // Pass deposit amount separately for paid_amount
             );
         } catch (\Throwable $e) {
             \Log::error('Failed to create PreOrderPayment record', [

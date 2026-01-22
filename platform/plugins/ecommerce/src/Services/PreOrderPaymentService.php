@@ -21,18 +21,44 @@ class PreOrderPaymentService
         PreOrderPaymentTypeEnum $paymentType,
         ?Customer $customer = null,
         ?string $customerEmail = null,
-        ?string $customerName = null
+        ?string $customerName = null,
+        ?float $fullProductPrice = null,
+        ?float $paidDepositAmount = null
     ): PreOrderPayment {
-        $productPrice = $preOrder->products()
-            ->where('product_id', $product->id)
-            ->first()?->pivot?->price ?? $product->price;
+        // Use full product price for total_amount calculation
+        // For deposits: fullProductPrice = full product price (20,000), paidDepositAmount = deposit paid (13,500)
+        // For full payment: fullProductPrice = full price, paidDepositAmount = null (will use fullProductPrice)
+        if ($fullProductPrice !== null && $fullProductPrice > 0) {
+            $productPrice = $fullProductPrice;
+        } else {
+            // Use pre-order pivot price if set, otherwise use the product's front sale price (sale price if on sale, otherwise base price)
+            $pivotPrice = $preOrder->products()
+                ->where('product_id', $product->id)
+                ->first()?->pivot?->price;
+            
+            if ($pivotPrice && $pivotPrice > 0) {
+                $productPrice = $pivotPrice;
+            } else {
+                // Use front_sale_price which includes sale price if product is on sale
+                $productPrice = $product->front_sale_price ?? $product->price;
+            }
+        }
 
         $totalAmount = $productPrice * $quantity;
         
         if ($paymentType === PreOrderPaymentTypeEnum::DEPOSIT) {
-            $paidAmount = $preOrder->calculateDepositAmount($product, $quantity);
+            // For deposits: use the actual deposit amount paid (from order product price)
+            if ($paidDepositAmount !== null && $paidDepositAmount > 0) {
+                // Use the actual deposit amount that was paid
+                $paidAmount = $paidDepositAmount * $quantity;
+            } else {
+                // Fallback: calculate deposit using pre-order settings
+                $paidAmount = $preOrder->calculateDepositAmount($product, $quantity);
+            }
+            
             $remainingAmount = $totalAmount - $paidAmount;
         } else {
+            // For full payment, the full price is paid
             $paidAmount = $totalAmount;
             $remainingAmount = 0;
         }

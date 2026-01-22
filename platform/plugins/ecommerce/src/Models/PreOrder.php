@@ -144,8 +144,10 @@ class PreOrder extends BaseModel
             'global_deposit_percentage' => $this->deposit_percentage,
         ]);
         
-        // Use pivot price if set and not 0, otherwise use product price
-        $productPrice = (!empty($productPivot?->price)) ? $productPivot->price : $product->price;
+        // Use pivot price if set and not 0, otherwise use product's front_sale_price (sale price if on sale, otherwise regular price)
+        $productPrice = (!empty($productPivot?->price)) 
+            ? $productPivot->price 
+            : ($product->front_sale_price ?? $product->price);
         $totalAmount = $productPrice * $quantity;
 
         // Check product-specific deposit first

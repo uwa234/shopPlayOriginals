@@ -11,6 +11,7 @@ use Botble\Base\Http\Controllers\BaseController;
 use Botble\Ecommerce\Forms\PreOrderForm;
 use Botble\Ecommerce\Http\Requests\PreOrderRequest;
 use Botble\Ecommerce\Models\PreOrder;
+use Botble\Ecommerce\Models\Product;
 use Botble\Ecommerce\Tables\PreOrderTable;
 use Illuminate\Http\Request;
 
@@ -36,7 +37,9 @@ class PreOrderController extends BaseController
 
         if ($request->input('products')) {
             $products = [];
+            $productIds = [];
             foreach ($request->input('products') as $productId => $productData) {
+                $productIds[] = $productId;
                 $products[$productId] = [
                     'price' => !empty($productData['price']) ? $productData['price'] : null,
                     'max_quantity' => !empty($productData['max_quantity']) ? $productData['max_quantity'] : null,
@@ -47,6 +50,11 @@ class PreOrderController extends BaseController
                 ];
             }
             $preOrder->products()->sync($products);
+            
+            // Automatically enable pre-order flag on products
+            if (!empty($productIds)) {
+                Product::whereIn('id', $productIds)->update(['is_preorder_enabled' => true]);
+            }
         }
 
         event(new CreatedContentEvent(PREORDER_MODULE_SCREEN_NAME, $request, $preOrder));
@@ -79,7 +87,9 @@ class PreOrderController extends BaseController
 
         if ($request->input('products')) {
             $products = [];
+            $productIds = [];
             foreach ($request->input('products') as $productId => $productData) {
+                $productIds[] = $productId;
                 $products[$productId] = [
                     'price' => !empty($productData['price']) ? $productData['price'] : null,
                     'max_quantity' => !empty($productData['max_quantity']) ? $productData['max_quantity'] : null,
@@ -90,6 +100,11 @@ class PreOrderController extends BaseController
                 ];
             }
             $preOrder->products()->sync($products);
+            
+            // Automatically enable pre-order flag on products
+            if (!empty($productIds)) {
+                Product::whereIn('id', $productIds)->update(['is_preorder_enabled' => true]);
+            }
         }
 
         event(new UpdatedContentEvent(PREORDER_MODULE_SCREEN_NAME, $request, $preOrder));

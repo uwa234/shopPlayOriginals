@@ -343,9 +343,8 @@ app()->booted(function (): void {
     Shortcode::register('ecommerce-pre-order', __('Ecommerce Pre-Order'), __('Ecommerce Pre-Order'), function (ShortcodeCompiler $shortcode) {
         $limit = (int) $shortcode->limit ?: 5;
 
-        // Get active pre-order campaigns
-        $preOrder = \Botble\Ecommerce\Models\PreOrder::query()
-            ->where('id', $shortcode->pre_order_id)
+        // Build query for active pre-order campaigns
+        $query = \Botble\Ecommerce\Models\PreOrder::query()
             ->wherePublished()
             ->where('expected_delivery_date', '>', now())
             ->with([
@@ -362,8 +361,14 @@ app()->booted(function (): void {
                         ->with(EcommerceHelper::withProductEagerLoadingRelations())
                         ->withCount($reviewParams['withCount']);
                 },
-            ])
-            ->first();
+            ]);
+
+        // If pre_order_id is specified, use it; otherwise get the first active one
+        if (!empty($shortcode->pre_order_id)) {
+            $query->where('id', $shortcode->pre_order_id);
+        }
+
+        $preOrder = $query->first();
 
         if (! $preOrder || $preOrder->products->isEmpty()) {
             return Theme::partial("shortcodes.ecommerce-pre-order.index", compact("shortcode", "preOrder"));
@@ -966,10 +971,10 @@ app()->booted(function (): void {
     Shortcode::register('ecommerce-pre-order', __('Ecommerce Pre-Order'), __('Ecommerce Pre-Order'), function (ShortcodeCompiler $shortcode) {
         $limit = (int) $shortcode->limit ?: 5;
 
+        // Build query for active pre-order campaigns
         // @phpstan-ignore-next-line
-        $preOrder = PreOrder::query()
+        $query = PreOrder::query()
             ->active()
-            ->where('id', $shortcode->pre_order_id)
             ->wherePublished()
             ->with([
                 'products' => function (BelongsToMany|BaseQueryBuilder $query) {
@@ -981,11 +986,18 @@ app()->booted(function (): void {
 
                     return $query
                         ->wherePublished()
+                        ->where('is_preorder_enabled', true)
                         ->with(EcommerceHelper::withProductEagerLoadingRelations())
                         ->withCount($reviewParams['withCount']);
                 },
-            ])
-            ->first();
+            ]);
+
+        // If pre_order_id is specified, use it; otherwise get the first active one
+        if (!empty($shortcode->pre_order_id)) {
+            $query->where('id', $shortcode->pre_order_id);
+        }
+
+        $preOrder = $query->first();
 
         if (! $preOrder || $preOrder->products->isEmpty()) {
             return Theme::partial('shortcodes.ecommerce-pre-order.index', compact('shortcode', 'preOrder'));

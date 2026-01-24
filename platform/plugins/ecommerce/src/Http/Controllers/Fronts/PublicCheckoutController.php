@@ -925,9 +925,39 @@ class PublicCheckoutController extends BaseController
 
         $products = $order->getOrderProducts();
 
+        // Get pre-order payment information for this order
+        $preOrderPayments = [];
+        $hasPreOrder = false;
+        
+        $productIds = $order->products->pluck('product_id')->filter()->unique()->values();
+        if ($productIds->isNotEmpty()) {
+            $isPreOrder = \Botble\Ecommerce\Models\Product::query()
+                ->whereIn('id', $productIds)
+                ->where('is_preorder_enabled', true)
+                ->exists();
+            
+            if ($isPreOrder) {
+                $hasPreOrder = true;
+                $customerEmail = optional($order->user)->email ?: optional($order->address)->email;
+                
+                $payments = \Botble\Ecommerce\Models\PreOrderPayment::query()
+                    ->whereIn('product_id', $productIds)
+                    ->when($order->user_id, fn($q) => $q->where('customer_id', $order->user_id))
+                    ->when(!$order->user_id && $customerEmail, fn($q) => $q->where('customer_email', $customerEmail))
+                    ->with(['product', 'preOrder'])
+                    ->orderByDesc('created_at')
+                    ->get();
+                
+                // Group by product_id and take only the most recent one per product to avoid duplicates
+                $preOrderPayments = $payments->groupBy('product_id')->map(function ($group) {
+                    return $group->first(); // Get the most recent payment for each product
+                })->values();
+            }
+        }
+
         OrderHelper::clearSessions($token);
 
-        return view('plugins/ecommerce::orders.thank-you', compact('order', 'products'));
+        return view('plugins/ecommerce::orders.thank-you', compact('order', 'products', 'preOrderPayments', 'hasPreOrder'));
     }
 
     public function postApplyCoupon(ApplyCouponRequest $request, HandleApplyCouponService $handleApplyCouponService)

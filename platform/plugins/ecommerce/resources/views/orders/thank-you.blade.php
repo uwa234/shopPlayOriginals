@@ -15,6 +15,14 @@
                         {{ __('Your order is successfully placed') }}
                     </h3>
                     <p>{{ __('Thank you for purchasing our products!') }}</p>
+                    @if(isset($hasPreOrder) && $hasPreOrder)
+                        <div class="mt-3">
+                            <span class="badge bg-info fs-6">
+                                <x-core::icon name="ti ti-clock-hour-4" />
+                                {{ __('Pre-Order') }}
+                            </span>
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -25,11 +33,15 @@
             </a>
         </div>
         <div class="col-lg-5 col-md-6 d-none d-md-block mt-5 mt-md-0 mb-5">
-            <div class="my-3 bg-light p-3">
-                @include('plugins/ecommerce::orders.thank-you.order-info')
+            @if(isset($hasPreOrder) && $hasPreOrder && isset($preOrderPayments) && $preOrderPayments->isNotEmpty())
+                @include('plugins/ecommerce::orders.thank-you.pre-order-info', compact('order', 'preOrderPayments'))
+            @else
+                <div class="my-3 bg-light p-3">
+                    @include('plugins/ecommerce::orders.thank-you.order-info')
 
-                @include('plugins/ecommerce::orders.thank-you.total-info', ['order' => $order])
-            </div>
+                    @include('plugins/ecommerce::orders.thank-you.total-info', ['order' => $order])
+                </div>
+            @endif
         </div>
     </div>
 @stop

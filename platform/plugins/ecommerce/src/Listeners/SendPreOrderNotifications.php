@@ -31,37 +31,41 @@ class SendPreOrderNotifications implements ShouldQueue
 
     protected function handlePreOrderCreated(PreOrderCreated $event): void
     {
-        // Get customers who have pre-ordered products from this pre-order
-        $customers = $this->getCustomersForPreOrder($event->preOrder);
+        // Get all payments for this pre-order to send individual emails
+        $payments = PreOrderPayment::query()
+            ->where('pre_order_id', $event->preOrder->getKey())
+            ->with(['product', 'customer'])
+            ->get();
 
-        foreach ($customers as $customer) {
-            // You would get the specific product and quantity from the order/cart context
-            // For now, we'll use the first product as an example
-            $product = $event->preOrder->products->first();
-            if ($product) {
-                $customer->notify(new PreOrderConfirmationNotification(
+        foreach ($payments as $payment) {
+            $product = $payment->product;
+            if (!$product) {
+                continue;
+            }
+
+            $customerData = [
+                'name' => $payment->customer_name ?: ($payment->customer?->name ?? 'Customer'),
+                'email' => $payment->customer_email ?: ($payment->customer?->email ?? ''),
+            ];
+
+            if ($payment->customer_id && $payment->customer) {
+                // Registered customer
+                $payment->customer->notify(new PreOrderConfirmationNotification(
                     $event->preOrder,
                     $product,
-                    1, // quantity - would come from actual order
-                    ['name' => $customer->name, 'email' => $customer->email]
+                    $payment->quantity,
+                    $customerData,
+                    $payment
                 ));
-            }
-        }
-
-        // Also notify guests who pre-ordered using only email (no account)
-        $guestContacts = $this->getGuestContactsForPreOrder($event->preOrder->getKey());
-        if ($guestContacts->isNotEmpty()) {
-            $product = $event->preOrder->products->first();
-            foreach ($guestContacts as $contact) {
-                if (! $product) {
-                    continue;
-                }
-                Notification::route('mail', $contact['email'])->notify(
+            } else if ($payment->customer_email) {
+                // Guest customer
+                Notification::route('mail', $payment->customer_email)->notify(
                     new PreOrderConfirmationNotification(
                         $event->preOrder,
                         $product,
-                        1,
-                        ['name' => $contact['name'], 'email' => $contact['email']]
+                        $payment->quantity,
+                        $customerData,
+                        $payment
                     )
                 );
             }

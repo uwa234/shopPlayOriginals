@@ -308,22 +308,6 @@ class MarketplaceServiceProvider extends ServiceProvider
                             'url' => fn () => route('marketplace.vendor.dashboard'),
                             'icon' => 'ti ti-building-store',
                         ]);
-                }, function (): void {
-                    DashboardMenu::make()
-                        ->when(
-                            MarketplaceHelper::isVendorRegistrationEnabled()
-                            && ! MarketplaceHelper::getSetting('hide_become_vendor_menu_in_customer_dashboard', false),
-                            function () {
-                                return DashboardMenu::make()
-                                    ->registerItem([
-                                        'id' => 'marketplace.vendor.become-vendor',
-                                        'priority' => 991,
-                                        'name' => __('Become A Vendor'),
-                                        'url' => fn () => route('marketplace.vendor.become-vendor'),
-                                        'icon' => 'ti ti-building-store',
-                                    ]);
-                            }
-                        );
                 });
         });
 

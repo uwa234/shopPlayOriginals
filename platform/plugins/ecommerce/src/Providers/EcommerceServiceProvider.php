@@ -743,6 +743,15 @@ class EcommerceServiceProvider extends ServiceProvider
                     'permissions' => ['pre-orders.index'],
                 ])
                 ->registerItem([
+                    'id' => 'cms-plugins-ecommerce-pre-orders-reports',
+                    'priority' => 26,
+                    'parent_id' => 'cms-plugins-ecommerce',
+                    'name' => 'plugins/ecommerce::pre-orders.reports.name',
+                    'icon' => 'ti ti-report-analytics',
+                    'url' => fn () => route('pre-orders.reports'),
+                    'permissions' => ['pre-orders.index'],
+                ])
+                ->registerItem([
                     'id' => 'cms-plugins-ecommerce-order-return',
                     'priority' => 30,
                     'parent_id' => 'cms-plugins-ecommerce',
@@ -950,6 +959,13 @@ class EcommerceServiceProvider extends ServiceProvider
                     'name' => __('Orders'),
                     'url' => fn () => route('customer.orders'),
                     'icon' => 'ti ti-shopping-cart',
+                ])
+                ->registerItem([
+                    'id' => 'cms-customer-pre-orders',
+                    'priority' => 35,
+                    'name' => __('My Pre-Orders'),
+                    'url' => fn () => route('customer.pre-orders.index'),
+                    'icon' => 'ti ti-clock-hour-4',
                 ])
                 ->when(EcommerceHelper::isReviewEnabled(), function (DashboardMenuSupport $dashboardMenu): void {
                     $dashboardMenu->registerItem([

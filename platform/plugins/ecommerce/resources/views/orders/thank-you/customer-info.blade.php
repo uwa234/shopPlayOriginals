@@ -73,6 +73,37 @@
     @endif
 
     {!! apply_filters('ecommerce_thank_you_customer_info', null, $order) !!}
+    
+    @if(isset($hasPreOrder) && $hasPreOrder && isset($preOrderPayments) && (($preOrderPayments instanceof \Illuminate\Support\Collection && $preOrderPayments->isNotEmpty()) || (is_array($preOrderPayments) && count($preOrderPayments) > 0)))
+        @php
+            $payments = $preOrderPayments instanceof \Illuminate\Support\Collection 
+                ? $preOrderPayments 
+                : collect($preOrderPayments);
+            $totalRemaining = 0;
+            foreach ($payments as $payment) {
+                $paymentModel = $payment instanceof \Botble\Ecommerce\Models\PreOrderPayment 
+                    ? $payment 
+                    : \Botble\Ecommerce\Models\PreOrderPayment::find($payment['id'] ?? $payment->id ?? null);
+                if (!$paymentModel) {
+                    continue;
+                }
+                $orderProduct = $paymentModel->orderProduct();
+                $taxAmount = $orderProduct ? ($orderProduct->tax_amount * $paymentModel->quantity) : 0;
+                $balanceWithTax = $paymentModel->total_amount - $paymentModel->paid_amount + $taxAmount;
+                $totalRemaining += $balanceWithTax;
+            }
+        @endphp
+        @if($totalRemaining > 0)
+            <p class="mt-3">
+                <span class="d-inline-block text-warning">
+                    <strong>
+                        <x-core::icon name="ti ti-alert-triangle" />
+                        {{ __('Balance Remaining') }}: {{ format_price($totalRemaining) }}
+                    </strong>
+                </span>
+            </p>
+        @endif
+    @endif
 </div>
 
 @if ($tax = $order->taxInformation)

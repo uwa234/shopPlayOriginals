@@ -5,6 +5,7 @@ namespace Botble\Ecommerce\Tables;
 use Botble\Base\Enums\BaseStatusEnum;
 use Botble\Ecommerce\Models\PreOrder;
 use Botble\Table\Abstracts\TableAbstract;
+use Botble\Table\Actions\Action;
 use Botble\Table\Actions\DeleteAction;
 use Botble\Table\Actions\EditAction;
 use Botble\Table\BulkActions\DeleteBulkAction;
@@ -25,6 +26,12 @@ class PreOrderTable extends TableAbstract
             ->model(PreOrder::class)
             ->addActions([
                 EditAction::make()->route('pre-orders.edit'),
+                Action::make('view-payments')
+                    ->label(__('View Payments'))
+                    ->icon('ti ti-credit-card')
+                    ->color('info')
+                    ->url(fn (Action $action) => route('pre-orders.payments', ['preOrder' => $action->getItem()->getKey()]))
+                    ->permission('pre-orders.edit'),
                 DeleteAction::make()->route('pre-orders.destroy'),
             ]);
     }
@@ -84,7 +91,17 @@ class PreOrderTable extends TableAbstract
 
     public function buttons(): array
     {
-        return $this->addCreateButton(route('pre-orders.create'), 'pre-orders.create');
+        $buttons = $this->addCreateButton(route('pre-orders.create'), 'pre-orders.create');
+        
+        if (auth()->user()->hasPermission('pre-orders.index')) {
+            $buttons['reports'] = [
+                'link' => route('pre-orders.reports'),
+                'text' => '<i class="ti ti-report-analytics"></i> ' . __('Pre-Order Reports'),
+                'class' => 'btn-info',
+            ];
+        }
+        
+        return $buttons;
     }
 
     public function bulkActions(): array

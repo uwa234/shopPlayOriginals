@@ -818,6 +818,12 @@ class HookServiceProvider extends ServiceProvider
                     $data['currency'] = $currency;
 
                     PaymentHelper::storeLocalPayment($data);
+                    
+                    // Update PreOrderPayment status to paid if order contains pre-order products
+                    $this->updatePreOrderPaymentStatus($order, $data['type'] ?? 'bank_transfer');
+                    
+                    // Send pre-order confirmation email after payment is processed
+                    $this->sendPreOrderConfirmationEmail($order);
                 }
 
                 OrderHelper::processOrder($orders->pluck('id')->all(), $data['charge_id']);
@@ -2137,6 +2143,126 @@ class HookServiceProvider extends ServiceProvider
             \Log::error('Failed to create PreOrderPayment record', [
                 'error' => $e->getMessage(),
                 'order_product_id' => $orderProduct->id ?? null,
+            ]);
+        }
+    }
+
+    /**
+     * Update PreOrderPayment status to paid when order payment is processed
+     */
+    protected function updatePreOrderPaymentStatus(Order $order, string $paymentMethod): void
+    {
+        try {
+            $orderProducts = \Botble\Ecommerce\Models\OrderProduct::query()
+                ->where('order_id', $order->getKey())
+                ->get();
+
+            $productIds = $orderProducts->pluck('product_id')->filter()->unique()->values();
+            if ($productIds->isEmpty()) {
+                return;
+            }
+
+            $isPreOrder = \Botble\Ecommerce\Models\Product::query()
+                ->whereIn('id', $productIds)
+                ->where('is_preorder_enabled', true)
+                ->exists();
+
+            if (!$isPreOrder) {
+                return;
+            }
+
+            // Get PreOrderPayment records for this order
+            $customerEmail = optional($order->user)->email ?: optional($order->address)->email;
+            
+            $payments = \Botble\Ecommerce\Models\PreOrderPayment::query()
+                ->whereIn('product_id', $productIds)
+                ->when($order->user_id, fn($q) => $q->where('customer_id', $order->user_id))
+                ->when(!$order->user_id && $customerEmail, fn($q) => $q->where('customer_email', $customerEmail))
+                ->where('payment_status', 'pending')
+                ->get();
+
+            $preOrderPaymentService = app(\Botble\Ecommerce\Services\PreOrderPaymentService::class);
+
+            foreach ($payments as $payment) {
+                // Update payment status to paid
+                $preOrderPaymentService->processPayment($payment, $paymentMethod);
+            }
+        } catch (\Throwable $e) {
+            \Log::error('Failed to update PreOrderPayment status', [
+                'error' => $e->getMessage(),
+                'order_id' => $order->id ?? null,
+            ]);
+        }
+    }
+
+    /**
+     * Send pre-order confirmation email after payment is processed
+     */
+    protected function sendPreOrderConfirmationEmail(Order $order): void
+    {
+        try {
+            $orderProducts = \Botble\Ecommerce\Models\OrderProduct::query()
+                ->where('order_id', $order->getKey())
+                ->get();
+
+            $productIds = $orderProducts->pluck('product_id')->filter()->unique()->values();
+            if ($productIds->isEmpty()) {
+                return;
+            }
+
+            $isPreOrder = \Botble\Ecommerce\Models\Product::query()
+                ->whereIn('id', $productIds)
+                ->where('is_preorder_enabled', true)
+                ->exists();
+
+            if (!$isPreOrder) {
+                return;
+            }
+
+            // Get PreOrderPayment records for this order
+            $customerEmail = optional($order->user)->email ?: optional($order->address)->email;
+            
+            $payments = \Botble\Ecommerce\Models\PreOrderPayment::query()
+                ->whereIn('product_id', $productIds)
+                ->when($order->user_id, fn($q) => $q->where('customer_id', $order->user_id))
+                ->when(!$order->user_id && $customerEmail, fn($q) => $q->where('customer_email', $customerEmail))
+                ->with(['product', 'preOrder', 'customer'])
+                ->get();
+
+            foreach ($payments as $payment) {
+                if (!$payment->product || !$payment->preOrder) {
+                    continue;
+                }
+
+                $customerData = [
+                    'name' => $payment->customer_name ?: ($payment->customer?->name ?? optional($order->user)->name ?? optional($order->address)->name ?? 'Customer'),
+                    'email' => $payment->customer_email ?: ($payment->customer?->email ?? $customerEmail),
+                ];
+
+                if ($payment->customer_id && $payment->customer) {
+                    $payment->customer->notify(new \Botble\Ecommerce\Notifications\PreOrderConfirmationNotification(
+                        $payment->preOrder,
+                        $payment->product,
+                        $payment->quantity,
+                        $customerData,
+                        $payment
+                    ));
+                } else if ($payment->customer_email) {
+                    \Illuminate\Support\Facades\Notification::route('mail', $payment->customer_email)->notify(
+                        new \Botble\Ecommerce\Notifications\PreOrderConfirmationNotification(
+                            $payment->preOrder,
+                            $payment->product,
+                            $payment->quantity,
+                            $customerData,
+                            $payment
+                        )
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            \Log::error('Failed to send pre-order confirmation email', [
+                'error' => $e->getMessage(),
+                'order_id' => $order->id ?? null,
             ]);
         }
     }

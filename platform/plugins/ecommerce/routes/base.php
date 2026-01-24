@@ -218,6 +218,21 @@ Theme::registerRoutes(function (): void {
                 'as' => 'public.pre-orders',
             ]);
 
+            Route::get('pre-orders/pay/{payment}', [
+                'uses' => 'PublicPreOrderPaymentController@show',
+                'as' => 'public.pre-orders.pay',
+            ])->wherePrimaryKey('payment');
+
+            Route::post('pre-orders/pay/{payment}', [
+                'uses' => 'PublicPreOrderPaymentController@process',
+                'as' => 'public.pre-orders.pay.process',
+            ])->wherePrimaryKey('payment');
+
+            Route::get('pre-orders/pay/{payment}/callback', [
+                'uses' => 'PublicPreOrderPaymentController@callback',
+                'as' => 'public.pre-orders.pay.callback',
+            ])->wherePrimaryKey('payment');
+
             Route::get('currency/switch/{code?}', [
                 'as' => 'public.change-currency',
                 'uses' => 'PublicEcommerceController@changeCurrency',

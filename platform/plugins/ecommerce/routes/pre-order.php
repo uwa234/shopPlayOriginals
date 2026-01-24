@@ -15,7 +15,7 @@ AdminHelper::registerRoutes(function (): void {
                 'permission' => 'pre-orders.destroy',
             ]);
 
-            Route::get('{preOrder}/payments', [
+            Route::match(['get', 'post'], '{preOrder}/payments', [
                 'as' => 'payments',
                 'uses' => 'PreOrderPaymentController@index',
                 'permission' => 'pre-orders.edit',
@@ -48,6 +48,36 @@ AdminHelper::registerRoutes(function (): void {
             Route::get('reports/export', [
                 'as' => 'reports.export',
                 'uses' => 'PreOrderReportController@export',
+                'permission' => 'pre-orders.index',
+            ]);
+
+            Route::get('reports/conversion-rate', [
+                'as' => 'reports.conversion-rate',
+                'uses' => 'PreOrderReportController@conversionRate',
+                'permission' => 'pre-orders.index',
+            ]);
+
+            Route::get('reports/payment-type-distribution', [
+                'as' => 'reports.payment-type-distribution',
+                'uses' => 'PreOrderReportController@paymentTypeDistribution',
+                'permission' => 'pre-orders.index',
+            ]);
+
+            Route::get('reports/customer-lifetime-value', [
+                'as' => 'reports.customer-lifetime-value',
+                'uses' => 'PreOrderReportController@customerLifetimeValue',
+                'permission' => 'pre-orders.index',
+            ]);
+
+            Route::get('reports/product-performance', [
+                'as' => 'reports.product-performance',
+                'uses' => 'PreOrderReportController@productPerformance',
+                'permission' => 'pre-orders.index',
+            ]);
+
+            Route::get('reports/revenue-forecast', [
+                'as' => 'reports.revenue-forecast',
+                'uses' => 'PreOrderReportController@revenueForecast',
                 'permission' => 'pre-orders.index',
             ]);
         });

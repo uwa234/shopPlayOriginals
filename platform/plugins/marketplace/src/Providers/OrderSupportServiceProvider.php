@@ -600,7 +600,49 @@ class OrderSupportServiceProvider extends ServiceProvider
 
         OrderHelper::clearSessions($token);
 
-        return view('plugins/marketplace::orders.thank-you', compact('orders'));
+        // Get pre-order payment information for all orders
+        $preOrderPayments = [];
+        $hasPreOrder = false;
+        $allProductIds = collect();
+        
+        // Collect all product IDs from all orders
+        foreach ($orders as $order) {
+            $productIds = $order->products->pluck('product_id')->filter()->unique()->values();
+            $allProductIds = $allProductIds->merge($productIds)->unique();
+        }
+        
+        if ($allProductIds->isNotEmpty()) {
+            $isPreOrder = \Botble\Ecommerce\Models\Product::query()
+                ->whereIn('id', $allProductIds)
+                ->where('is_preorder_enabled', true)
+                ->exists();
+            
+            if ($isPreOrder) {
+                $hasPreOrder = true;
+                
+                // Get customer info from first order (they should all be the same customer)
+                $firstOrder = $orders->first();
+                $customerEmail = optional($firstOrder->user)->email ?: optional($firstOrder->address)->email;
+                
+                // Get all payments for all products, grouped by product_id to avoid duplicates
+                $payments = \Botble\Ecommerce\Models\PreOrderPayment::query()
+                    ->whereIn('product_id', $allProductIds)
+                    ->when($firstOrder->user_id, fn($q) => $q->where('customer_id', $firstOrder->user_id))
+                    ->when(!$firstOrder->user_id && $customerEmail, fn($q) => $q->where('customer_email', $customerEmail))
+                    ->with(['product', 'preOrder'])
+                    ->orderByDesc('created_at')
+                    ->get();
+                
+                // Group by product_id and take only the most recent one per product to avoid duplicates
+                $uniquePayments = $payments->groupBy('product_id')->map(function ($group) {
+                    return $group->first(); // Get the most recent payment for each product
+                });
+                
+                $preOrderPayments = $uniquePayments->values()->all();
+            }
+        }
+
+        return view('plugins/marketplace::orders.thank-you', compact('orders', 'preOrderPayments', 'hasPreOrder'));
     }
 
     public function processGetPaymentStatus(Request $request, BaseHttpResponse $response): BaseHttpResponse

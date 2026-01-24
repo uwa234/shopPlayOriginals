@@ -15,6 +15,14 @@
                         {{ __('Your order is successfully placed') }}
                     </h3>
                     <p>{{ __('Thank you for purchasing our products!') }}</p>
+                    @if(isset($hasPreOrder) && $hasPreOrder)
+                        <div class="mt-3">
+                            <span class="badge bg-info fs-6">
+                                <x-core::icon name="ti ti-clock-hour-4" />
+                                {{ __('Pre-Order') }}
+                            </span>
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -30,73 +38,83 @@
         </div>
 
         <div class="col-lg-5 col-md-6 mt-5 mt-md-0 mb-5">
-            @foreach ($orders as $order)
-                <div class="bg-light p-3 pt-0">
-                    @include('plugins/ecommerce::orders.thank-you.order-info', ['isShowTotalInfo' => true])
-                </div>
+            @if(isset($hasPreOrder) && $hasPreOrder && isset($preOrderPayments) && count($preOrderPayments) > 0)
+                @php
+                    $preOrderPaymentsCollection = collect($preOrderPayments);
+                @endphp
+                @include('plugins/ecommerce::orders.thank-you.pre-order-info', [
+                    'order' => $orders->first(),
+                    'preOrderPayments' => $preOrderPaymentsCollection
+                ])
+            @else
+                @foreach ($orders as $order)
+                    <div class="bg-light p-3 pt-0">
+                        @include('plugins/ecommerce::orders.thank-you.order-info', ['isShowTotalInfo' => true])
+                    </div>
 
-                @if (! $loop->last)
+                    @if (! $loop->last)
+                        <hr class="border-dark-subtle" />
+                    @endif
+                @endforeach
+
+                @if (count($orders) > 1)
                     <hr class="border-dark-subtle" />
+                    <!-- total info -->
+                    <div class="bg-light p-3">
+                        <div class="row total-price">
+                            <div class="col-6">
+                                <p>{{ __('Sub amount') }}:</p>
+                            </div>
+                            <div class="col-6">
+                                <p class="text-end">{{ format_price($orders->sum('sub_total')) }}</p>
+                            </div>
+                        </div>
+
+                        @if ($orders->filter(fn ($order) => $order->shipment->id)->count())
+                            <div class="row total-price">
+                                <div class="col-6">
+                                    <p>{{ __('Shipping fee') }}:</p>
+                                </div>
+                                <div class="col-6">
+                                    <p class="text-end">{{ format_price($orders->sum('shipping_amount')) }} </p>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if ($orders->sum('discount_amount'))
+                            <div class="row total-price">
+                                <div class="col-6">
+                                    <p>{{ __('Discount') }}:</p>
+                                </div>
+                                <div class="col-6">
+                                    <p class="text-end">{{ format_price($orders->sum('discount_amount')) }} </p>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if (EcommerceHelper::isTaxEnabled())
+                            <div class="row total-price">
+                                <div class="col-6">
+                                    <p>{{ __('Tax') }}:</p>
+                                </div>
+                                <div class="col-6">
+                                    <p class="text-end">{{ format_price($orders->sum('tax_amount')) }}</p>
+                                </div>
+                            </div>
+                        @endif
+
+                        <div class="row total-price">
+                            <div class="col-6">
+                                <p>{{ __('Total amount') }}:</p>
+                            </div>
+                            <div class="col-6">
+                                <p class="total-text raw-total-text text-end">
+                                    {{ format_price($orders->sum('amount')) }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 @endif
-            @endforeach
-
-            @if (count($orders) > 1)
-                <hr class="border-dark-subtle" />
-                <!-- total info -->
-                <div class="bg-light p-3">
-                    <div class="row total-price">
-                        <div class="col-6">
-                            <p>{{ __('Sub amount') }}:</p>
-                        </div>
-                        <div class="col-6">
-                            <p class="text-end">{{ format_price($orders->sum('sub_total')) }}</p>
-                        </div>
-                    </div>
-
-                    @if ($orders->filter(fn ($order) => $order->shipment->id)->count())
-                        <div class="row total-price">
-                            <div class="col-6">
-                                <p>{{ __('Shipping fee') }}:</p>
-                            </div>
-                            <div class="col-6">
-                                <p class="text-end">{{ format_price($orders->sum('shipping_amount')) }} </p>
-                            </div>
-                        </div>
-                    @endif
-
-                    @if ($orders->sum('discount_amount'))
-                        <div class="row total-price">
-                            <div class="col-6">
-                                <p>{{ __('Discount') }}:</p>
-                            </div>
-                            <div class="col-6">
-                                <p class="text-end">{{ format_price($orders->sum('discount_amount')) }} </p>
-                            </div>
-                        </div>
-                    @endif
-
-                    @if (EcommerceHelper::isTaxEnabled())
-                        <div class="row total-price">
-                            <div class="col-6">
-                                <p>{{ __('Tax') }}:</p>
-                            </div>
-                            <div class="col-6">
-                                <p class="text-end">{{ format_price($orders->sum('tax_amount')) }}</p>
-                            </div>
-                        </div>
-                    @endif
-
-                    <div class="row total-price">
-                        <div class="col-6">
-                            <p>{{ __('Total amount') }}:</p>
-                        </div>
-                        <div class="col-6">
-                            <p class="total-text raw-total-text text-end">
-                                {{ format_price($orders->sum('amount')) }}
-                            </p>
-                        </div>
-                    </div>
-                </div>
             @endif
         </div>
     </div>

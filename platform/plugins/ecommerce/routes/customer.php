@@ -190,6 +190,12 @@ Theme::registerRoutes(function (): void {
                 Route::post('{id}/confirm-delivery', [OrderController::class, 'confirmDelivery'])->name('orders.confirm-delivery')->wherePrimaryKey();
             });
 
+            Route::get('my-pre-orders', [\Botble\Ecommerce\Http\Controllers\Customers\PreOrderController::class, 'index'])->name('pre-orders.index');
+            Route::get('pre-orders/view/{id}', [\Botble\Ecommerce\Http\Controllers\Customers\PreOrderController::class, 'show'])->name('pre-orders.show')->wherePrimaryKey();
+            Route::get('pre-orders/{id}/pay-balance', [\Botble\Ecommerce\Http\Controllers\Customers\PreOrderController::class, 'payBalance'])->name('pre-orders.pay')->wherePrimaryKey();
+            Route::get('pre-orders/{id}/cancel', [\Botble\Ecommerce\Http\Controllers\Customers\PreOrderController::class, 'getCancel'])->name('pre-orders.cancel')->wherePrimaryKey();
+            Route::post('pre-orders/{id}/cancel', [\Botble\Ecommerce\Http\Controllers\Customers\PreOrderController::class, 'cancel'])->name('pre-orders.cancel.post')->wherePrimaryKey();
+
             Route::prefix(EcommerceHelper::getPageSlug('customer_address'))->group(function (): void {
                 Route::get('/', [
                     'as' => 'address',

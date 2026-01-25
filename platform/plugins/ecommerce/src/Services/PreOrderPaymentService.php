@@ -130,11 +130,14 @@ class PreOrderPaymentService
         }
     }
 
-    public function generatePaymentData(PreOrderPayment $payment, string $callbackUrl): array
+    public function generatePaymentData(PreOrderPayment $payment, string $callbackUrl, ?float $customAmount = null): array
     {
+        // Use custom amount (balance with tax) if provided, otherwise use remaining_amount
+        $amount = $customAmount !== null ? $customAmount : $payment->remaining_amount;
+        
         return [
             'order_id' => [$payment->id], // Use payment ID as order ID
-            'amount' => $payment->remaining_amount,
+            'amount' => $amount,
             'currency' => get_application_currency()->title,
             'customer_id' => $payment->customer_id,
             'customer_type' => Customer::class,
@@ -151,8 +154,8 @@ class PreOrderPaymentService
                 ]
             ],
             'callback_url' => $callbackUrl,
-            'return_url' => route('public.checkout.success'),
-            'cancel_url' => route('public.checkout.cancel'),
+            'return_url' => $callbackUrl, // Use callback URL as return URL for pre-order payments
+            'cancel_url' => route('public.index'),
         ];
     }
 

@@ -321,11 +321,15 @@
         <div class="mt-3">
             <div class="d-flex flex-wrap gap-2">
                 @if($balanceWithTax > 0 && $payment->payment_status === 'paid')
-                    <a href="{{ route('customer.pre-orders.pay', $payment->id) }}" 
-                       class="btn btn-success btn-lg">
-                        <x-core::icon name="ti ti-credit-card" />
-                        {{ __('Pay Remaining Balance') }} ({{ format_price($balanceWithTax) }})
-                    </a>
+                    <form action="{{ route('public.pre-orders.pay.process', $payment->id) }}" method="POST" class="d-inline" id="pay-balance-form-{{ $payment->id }}">
+                        @csrf
+                        <input type="hidden" name="payment_method" value="{{ setting('default_payment_method', 'paystack') }}">
+                        <input type="hidden" name="balance_with_tax" value="{{ $balanceWithTax }}">
+                        <button type="submit" class="btn btn-success btn-lg pay-balance-btn" data-payment-id="{{ $payment->id }}" data-amount="{{ $balanceWithTax }}">
+                            <x-core::icon name="ti ti-credit-card" />
+                            {{ __('Pay Remaining Balance') }} ({{ format_price($balanceWithTax) }})
+                        </button>
+                    </form>
                 @endif
                 <a href="{{ $payment->product->url }}" 
                    class="btn btn-outline-primary">
@@ -336,3 +340,68 @@
         </div>
     </div>
 @stop
+
+@push('footer')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle Pay Balance button clicks to trigger Paystack payment
+    document.querySelectorAll('.pay-balance-btn').forEach(function(button) {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const form = this.closest('form');
+            const paymentId = this.dataset.paymentId;
+            const amount = parseFloat(this.dataset.amount);
+            
+            // Show loading state
+            const originalText = this.innerHTML;
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>{{ __('Processing...') }}';
+            
+            // Submit form via AJAX to get Paystack URL
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || form.querySelector('input[name="_token"]').value
+                },
+                body: new URLSearchParams(new FormData(form))
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.message || '{{ __('Payment failed. Please try again.') }}');
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                } else if (data.data && data.data.checkout_url) {
+                    // Open Paystack payment page in a popup window (modal-like)
+                    const paystackWindow = window.open(
+                        data.data.checkout_url,
+                        'PaystackPayment',
+                        'width=800,height=600,scrollbars=yes,resizable=yes'
+                    );
+                    
+                    // Monitor the popup window for when payment is complete
+                    const checkClosed = setInterval(function() {
+                        if (paystackWindow.closed) {
+                            clearInterval(checkClosed);
+                            // Reload page to show updated payment status
+                            window.location.reload();
+                        }
+                    }, 500);
+                } else {
+                    // If no checkout_url, try to submit form normally
+                    form.submit();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('{{ __('An error occurred. Please try again.') }}');
+                this.disabled = false;
+                this.innerHTML = originalText;
+            });
+        });
+    });
+});
+</script>
+@endpush

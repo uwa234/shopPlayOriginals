@@ -99,8 +99,24 @@ class PreOrderController extends BaseController
             ->with(['product', 'preOrder', 'customer', 'statusHistory'])
             ->firstOrFail();
 
-        // Load order relationship
-        $payment->load('orderProduct.order');
+        // Manually load order relationship (orderProduct is a method, not a relationship)
+        try {
+            $orderProduct = $payment->orderProduct();
+            if ($orderProduct) {
+                $orderProduct->load('order');
+                // Set as relation so it can be accessed in the view
+                $payment->setRelation('orderProduct', $orderProduct);
+                if ($orderProduct->order) {
+                    $payment->setRelation('order', $orderProduct->order);
+                }
+            }
+        } catch (\Exception $e) {
+            // Skip if there's an error loading the relationship
+            \Log::warning('Failed to load order relationship for payment', [
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage()
+            ]);
+        }
 
         SeoHelper::setTitle(__('Pre-Order Details'));
 

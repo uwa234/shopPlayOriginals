@@ -250,7 +250,7 @@
                             <strong>{{ __('Price') }}:</strong> 
                             <span class="text-primary">{{ format_price($payment->product_price) }}</span>
                         </p>
-                        <a href="{{ route('public.product', $payment->product->slug) }}" 
+                        <a href="{{ $payment->product->url }}" 
                            class="btn btn-sm btn-outline-primary" 
                            target="_blank">
                             {{ __('View Product') }}
@@ -327,7 +327,7 @@
                         {{ __('Pay Remaining Balance') }} ({{ format_price($balanceWithTax) }})
                     </a>
                 @endif
-                <a href="{{ route('public.product', $payment->product->slug) }}" 
+                <a href="{{ $payment->product->url }}" 
                    class="btn btn-outline-primary">
                     <x-core::icon name="ti ti-eye" />
                     {{ __('View Product') }}
